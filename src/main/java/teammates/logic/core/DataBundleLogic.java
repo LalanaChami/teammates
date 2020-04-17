@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -11,10 +12,12 @@ import java.util.Set;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 
+import teammates.common.datatransfer.AttributesDeletionQuery;
 import teammates.common.datatransfer.DataBundle;
 import teammates.common.datatransfer.InstructorPrivileges;
 import teammates.common.datatransfer.attributes.AccountAttributes;
 import teammates.common.datatransfer.attributes.CourseAttributes;
+import teammates.common.datatransfer.attributes.EntityAttributes;
 import teammates.common.datatransfer.attributes.FeedbackQuestionAttributes;
 import teammates.common.datatransfer.attributes.FeedbackResponseAttributes;
 import teammates.common.datatransfer.attributes.FeedbackResponseCommentAttributes;
@@ -28,7 +31,6 @@ import teammates.common.util.Const;
 import teammates.common.util.StringHelper;
 import teammates.storage.api.AccountsDb;
 import teammates.storage.api.CoursesDb;
-import teammates.storage.api.EntitiesDb;
 import teammates.storage.api.FeedbackQuestionsDb;
 import teammates.storage.api.FeedbackResponseCommentsDb;
 import teammates.storage.api.FeedbackResponsesDb;
@@ -79,7 +81,7 @@ public final class DataBundleLogic {
      *
      * @throws InvalidParametersException if invalid data is encountered.
      */
-    public void persistDataBundle(DataBundle dataBundle) throws InvalidParametersException {
+    public DataBundle persistDataBundle(DataBundle dataBundle) throws InvalidParametersException {
         if (dataBundle == null) {
             throw new InvalidParametersException("Null data bundle");
         }
@@ -109,22 +111,54 @@ public final class DataBundleLogic {
         processResponsesAndPopulateMap(responses, sessionResponsesMap);
         processSessionsAndUpdateRespondents(sessions, courseInstructorsMap, sessionQuestionsMap, sessionResponsesMap);
 
-        accountsDb.createEntitiesDeferred(googleIdAccountMap.values());
-        profilesDb.createEntitiesDeferred(profiles);
-        coursesDb.createEntitiesDeferred(courses);
-        instructorsDb.createEntitiesDeferred(instructors);
-        studentsDb.createEntitiesDeferred(students);
-        fbDb.createEntitiesDeferred(sessions);
+        List<AccountAttributes> newAccounts = accountsDb.putEntities(googleIdAccountMap.values());
 
-        // This also flushes all previously deferred operations
-        List<FeedbackQuestionAttributes> createdQuestions = fqDb.createFeedbackQuestionsWithoutExistenceCheck(questions);
+        List<StudentProfileAttributes> newProfiles = profilesDb.putEntities(profiles);
+        List<CourseAttributes> newCourses = coursesDb.putEntities(courses);
+        List<InstructorAttributes> newInstructors = instructorsDb.putEntities(instructors);
+        List<StudentAttributes> newStudents = studentsDb.putEntities(students);
+        List<FeedbackSessionAttributes> newFeedbackSessions = fbDb.putEntities(sessions);
 
+        List<FeedbackQuestionAttributes> createdQuestions = fqDb.putEntities(questions);
         injectRealIds(responses, responseComments, createdQuestions);
 
-        frDb.createEntitiesDeferred(responses);
-        fcDb.createEntitiesDeferred(responseComments);
+        List<FeedbackResponseAttributes> newFeedbackResponses = frDb.putEntities(responses);
+        List<FeedbackResponseCommentAttributes> newFeedbackResponseComments = fcDb.putEntities(responseComments);
 
-        EntitiesDb.flush();
+        updateDataBundleValue(newAccounts, dataBundle.accounts);
+        updateDataBundleValue(newProfiles, dataBundle.profiles);
+        updateDataBundleValue(newCourses, dataBundle.courses);
+        updateDataBundleValue(newInstructors, dataBundle.instructors);
+        updateDataBundleValue(newStudents, dataBundle.students);
+        updateDataBundleValue(newFeedbackSessions, dataBundle.feedbackSessions);
+        updateDataBundleValue(createdQuestions, dataBundle.feedbackQuestions);
+        updateDataBundleValue(newFeedbackResponses, dataBundle.feedbackResponses);
+        updateDataBundleValue(newFeedbackResponseComments, dataBundle.feedbackResponseComments);
+
+        return dataBundle;
+
+    }
+
+    private <T extends EntityAttributes> void updateDataBundleValue(List<T> newValues, Map<String, T> oldValues) {
+        Map<T, Integer> newValuesMap = new HashMap<>();
+        Map<String, T> values = new LinkedHashMap<>();
+
+        for (int i = 0; i < newValues.size(); i++) {
+            newValuesMap.put(newValues.get(i), i);
+        }
+
+        for (Map.Entry<String, T> entry : oldValues.entrySet()) {
+            String key = entry.getKey();
+            T value = entry.getValue();
+
+            if (newValuesMap.containsKey(value)) {
+                int index = newValuesMap.get(value);
+                values.put(key, newValues.get(index));
+            }
+        }
+
+        oldValues.clear();
+        oldValues.putAll(values);
     }
 
     /**
@@ -376,8 +410,7 @@ public final class DataBundleLogic {
     }
 
     private AccountAttributes makeAccount(InstructorAttributes instructor) {
-        return AccountAttributes.builder()
-                .withGoogleId(instructor.googleId)
+        return AccountAttributes.builder(instructor.googleId)
                 .withName(instructor.name)
                 .withEmail(instructor.email)
                 .withInstitute("TEAMMATES Test Institute 1")
@@ -386,8 +419,7 @@ public final class DataBundleLogic {
     }
 
     private AccountAttributes makeAccount(StudentAttributes student) {
-        return AccountAttributes.builder()
-                .withGoogleId(student.googleId)
+        return AccountAttributes.builder(student.googleId)
                 .withName(student.name)
                 .withEmail(student.email)
                 .withInstitute("TEAMMATES Test Institute 1")
@@ -422,11 +454,12 @@ public final class DataBundleLogic {
         // We don't attempt to delete them again, to save time.
         deleteCourses(dataBundle.courses.values());
 
-        accountsDb.deleteAccounts(dataBundle.accounts.values());
-        // delete associated profiles
-        // TODO: Remove the following line after tests have been run against LIVE server
-        dataBundle.accounts.values().forEach(account -> profilesDb.deleteStudentProfile(account.googleId));
-        profilesDb.deleteEntities(dataBundle.profiles.values());
+        dataBundle.accounts.values().forEach(account -> {
+            accountsDb.deleteAccount(account.getGoogleId());
+        });
+        dataBundle.profiles.values().forEach(profile -> {
+            profilesDb.deleteStudentProfile(profile.googleId);
+        });
     }
 
     private void deleteCourses(Collection<CourseAttributes> courses) {
@@ -435,13 +468,19 @@ public final class DataBundleLogic {
             courseIds.add(course.getId());
         }
         if (!courseIds.isEmpty()) {
-            coursesDb.deleteEntities(courses);
-            instructorsDb.deleteInstructorsForCourses(courseIds);
-            studentsDb.deleteStudentsForCourses(courseIds);
-            fbDb.deleteFeedbackSessionsForCourses(courseIds);
-            fqDb.deleteFeedbackQuestionsForCourses(courseIds);
-            frDb.deleteFeedbackResponsesForCourses(courseIds);
-            fcDb.deleteFeedbackResponseCommentsForCourses(courseIds);
+            courseIds.forEach(courseId -> {
+                AttributesDeletionQuery query = AttributesDeletionQuery.builder()
+                        .withCourseId(courseId)
+                        .build();
+                fcDb.deleteFeedbackResponseComments(query);
+                frDb.deleteFeedbackResponses(query);
+                fqDb.deleteFeedbackQuestions(query);
+                fbDb.deleteFeedbackSessions(query);
+                studentsDb.deleteStudents(query);
+                instructorsDb.deleteInstructors(query);
+
+                coursesDb.deleteCourse(courseId);
+            });
         }
     }
 

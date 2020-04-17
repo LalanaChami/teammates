@@ -75,28 +75,32 @@ public abstract class BaseActionTest extends BaseComponentTestCase {
         assertTrue(true);
     }
 
-    /** Executes the action and returns the result.
+    /**
+     * Executes the action and returns the result.
      * Assumption: The action returns a ShowPageResult.
      */
     protected ShowPageResult getShowPageResult(Action a) {
         return (ShowPageResult) a.executeAndPostProcess();
     }
 
-    /** Executes the action and returns the result.
+    /**
+     * Executes the action and returns the result.
      * Assumption: The action returns a RedirectResult.
      */
     protected RedirectResult getRedirectResult(Action a) {
         return (RedirectResult) a.executeAndPostProcess();
     }
 
-    /** Executes the action and returns the result.
+    /**
+     * Executes the action and returns the result.
      * Assumption: The action returns an AjaxResult.
      */
     protected AjaxResult getAjaxResult(Action a) {
         return (AjaxResult) a.executeAndPostProcess();
     }
 
-    /** Executes the action and returns the result.
+    /**
+     * Executes the action and returns the result.
      * Assumption: The action returns a FileDownloadResult.
      */
     protected FileDownloadResult getFileDownloadResult(Action a) {
@@ -721,12 +725,13 @@ public abstract class BaseActionTest extends BaseComponentTestCase {
     protected static void addUnregStudentToCourse1() throws Exception {
         StudentsLogic.inst().deleteStudentCascade("idOfTypicalCourse1", "student6InCourse1@gmail.tmt");
         StudentAttributes student = StudentAttributes
-                .builder("idOfTypicalCourse1", "unregistered student6 In Course1", "student6InCourse1@gmail.tmt")
-                .withTeam("Team Unregistered")
-                .withSection("Section 3")
-                .withComments("")
+                .builder("idOfTypicalCourse1", "student6InCourse1@gmail.tmt")
+                .withName("unregistered student6 In Course1")
+                .withTeamName("Team Unregistered")
+                .withSectionName("Section 3")
+                .withComment("")
                 .build();
-        StudentsLogic.inst().createStudentCascade(student);
+        StudentsLogic.inst().createStudent(student);
     }
 
     protected String getPageResultDestination(String parentUri, boolean isError, String userId) {

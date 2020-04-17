@@ -5,6 +5,8 @@ import teammates.common.datatransfer.attributes.InstructorAttributes;
 import teammates.common.datatransfer.attributes.StudentAttributes;
 import teammates.common.exception.InvalidHttpParameterException;
 import teammates.common.util.Const;
+import teammates.ui.webapi.output.FeedbackSessionData;
+import teammates.ui.webapi.request.Intent;
 
 /**
  * Get a feedback session.
@@ -25,6 +27,7 @@ public class GetFeedbackSessionAction extends BasicFeedbackSubmissionAction {
 
         switch (intent) {
         case STUDENT_SUBMISSION:
+        case STUDENT_RESULT:
             StudentAttributes studentAttributes = getStudentOfCourseFromRequest(courseId);
             checkAccessControlForStudentFeedbackSubmission(studentAttributes, feedbackSession);
             break;
@@ -34,6 +37,7 @@ public class GetFeedbackSessionAction extends BasicFeedbackSubmissionAction {
                     feedbackSession);
             break;
         case INSTRUCTOR_SUBMISSION:
+        case INSTRUCTOR_RESULT:
             InstructorAttributes instructorAttributes = getInstructorOfCourseFromRequest(courseId);
             checkAccessControlForInstructorFeedbackSubmission(instructorAttributes, feedbackSession);
             break;
@@ -49,21 +53,15 @@ public class GetFeedbackSessionAction extends BasicFeedbackSubmissionAction {
         FeedbackSessionAttributes feedbackSession = logic.getFeedbackSession(feedbackSessionName, courseId);
         Intent intent = Intent.valueOf(getNonNullRequestParamValue(Const.ParamsNames.INTENT));
 
-        FeedbackSessionInfo.FeedbackSessionResponse response =
-                new FeedbackSessionInfo.FeedbackSessionResponse(feedbackSession);
+        FeedbackSessionData response = new FeedbackSessionData(feedbackSession);
 
         switch (intent) {
         case STUDENT_SUBMISSION:
         case INSTRUCTOR_SUBMISSION:
+        case STUDENT_RESULT:
+        case INSTRUCTOR_RESULT:
             // hide some attributes for submission
-            response.setGracePeriod(null);
-            response.setSessionVisibleSetting(null);
-            response.setCustomSessionVisibleTimestamp(null);
-            response.setResponseVisibleSetting(null);
-            response.setCustomResponseVisibleTimestamp(null);
-            response.setPublishStatus(null);
-            response.setClosingEmailEnabled(null);
-            response.setPublishedEmailEnabled(null);
+            response.hideInformationForStudent();
             break;
         case FULL_DETAIL:
             break;

@@ -17,14 +17,14 @@ import teammates.common.datatransfer.questions.FeedbackNumericalScaleResponseDet
 import teammates.common.util.AppUrl;
 import teammates.common.util.Const;
 import teammates.e2e.cases.e2e.BaseE2ETestCase;
-import teammates.e2e.util.BackDoor;
 import teammates.e2e.util.TestProperties;
+import teammates.test.driver.BackDoor;
 import teammates.test.pageobjects.AppPage;
 import teammates.test.pageobjects.FeedbackSessionNotVisiblePage;
 import teammates.test.pageobjects.FeedbackSubmitPage;
 
 /**
- * SUT: {@link Const.ActionURIs#STUDENT_FEEDBACK_SUBMISSION_EDIT_PAGE}.
+ * SUT: {@link Const.WebPageURIs#SESSION_SUBMISSION_PAGE}.
  *
  * <p>The first team is named "Team >'"< 1" to test cases where a HTML character exists in the team name.
  */
@@ -381,7 +381,7 @@ public class StudentFeedbackSubmitPageUiTest extends BaseE2ETestCase {
                 Const.StatusMessages.FEEDBACK_UNANSWERED_QUESTIONS + "21, 22, 23, 24, 25, 26, 27.");
         assertEquals("<p>" + editedResponse + "</p>",
                      BackDoor.getFeedbackResponse(fq.getId(), "SFSubmitUiT.alice.b@gmail.tmt",
-                                                  "SFSubmitUiT.benny.c@gmail.tmt").responseMetaData);
+                                                  "SFSubmitUiT.benny.c@gmail.tmt").getSerializedFeedbackResponseDetail());
 
         assertEquals("UI", BackDoor.getFeedbackResponse(fqMcq.getId(),
                                                         aliceTeam,
@@ -873,7 +873,7 @@ public class StudentFeedbackSubmitPageUiTest extends BaseE2ETestCase {
                                         .withCourseId(testData.feedbackSessions.get(fsName).getCourseId())
                                         .withSessionName(testData.feedbackSessions.get(fsName).getFeedbackSessionName());
 
-        return loginAdminToPage(editUrl, FeedbackSubmitPage.class);
+        return loginAdminToPageOld(editUrl, FeedbackSubmitPage.class);
     }
 
     private FeedbackSessionNotVisiblePage
@@ -883,7 +883,7 @@ public class StudentFeedbackSubmitPageUiTest extends BaseE2ETestCase {
                                         .withCourseId(testData.feedbackSessions.get(fsName).getCourseId())
                                         .withSessionName(testData.feedbackSessions.get(fsName).getFeedbackSessionName());
 
-        return loginAdminToPage(editUrl, FeedbackSessionNotVisiblePage.class);
+        return loginAdminToPageOld(editUrl, FeedbackSessionNotVisiblePage.class);
     }
 
     private void moveToTeam(StudentAttributes student, String newTeam) {

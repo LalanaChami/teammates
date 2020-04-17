@@ -1,5 +1,4 @@
-import { FeedbackSession } from '../../feedback-session';
-import { InstructorPrivilege } from '../../instructor-privilege';
+import { FeedbackSession, InstructorPrivilege } from '../../../types/api-output';
 
 /**
  * The model for a row of the sessions table.
@@ -55,64 +54,4 @@ export enum SessionsTableHeaderColorScheme {
    * White background with black text.
    */
   WHITE,
-}
-
-/**
- * Sort criteria for the sessions table.
- */
-export enum SortBy {
-  /**
-   * Nothing.
-   */
-  NONE,
-
-  /**
-   * Course ID.
-   */
-  COURSE_ID,
-
-  /**
-   * Course ID.
-   */
-  COURSE_NAME,
-
-  /**
-   * Feedback session name.
-   */
-  FEEDBACK_SESSION_NAME,
-
-  /**
-   * Start time of the feedback session.
-   */
-  START_DATE,
-
-  /**
-   * End time of the feedback session.
-   */
-  END_DATE,
-
-  /**
-   * The creation time of the feedback session.
-   */
-  CREATION_DATE,
-
-  /**
-   * The time when the feedback session is moved to recycle bin.
-   */
-  DELETION_DATE,
-}
-
-/**
- * Sort order for the sessions table.
- */
-export enum SortOrder {
-  /**
-   * Descending sort order.
-   */
-  DESC,
-
-  /**
-   * Ascending sort order
-   */
-  ASC,
 }

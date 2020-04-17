@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../../services/auth.service';
+import { MasqueradeModeService } from '../../services/masquerade-mode.service';
 import { AuthInfo } from '../../types/api-output';
 
 /**
@@ -14,7 +15,6 @@ export class StaticPageComponent implements OnInit {
 
   studentLoginUrl: string = '';
   instructorLoginUrl: string = '';
-  logoutUrl: string = '';
   user: string = '';
   institute?: string = '';
   isInstructor: boolean = false;
@@ -52,19 +52,28 @@ export class StaticPageComponent implements OnInit {
           url: '/web/front/help/instructor',
           display: 'Instructor Help',
         },
+        {
+          url: '/web/front/help/session-links-recovery',
+          display: 'Recover Session Links',
+        },
       ],
     },
   ];
+  isFetchingAuthDetails: boolean = false;
 
   private backendUrl: string = environment.backendUrl;
 
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService, private masqueradeModeService: MasqueradeModeService) {}
 
   ngOnInit(): void {
+    this.isFetchingAuthDetails = true;
     this.authService.getAuthUser().subscribe((res: AuthInfo) => {
       if (res.user) {
-        this.logoutUrl = `${this.backendUrl}${res.logoutUrl}`;
         this.user = res.user.id;
+        if (res.masquerade) {
+          this.user += ' (M)';
+          this.masqueradeModeService.setMasqueradeUser(res.user.id);
+        }
         this.institute = res.institute;
         this.isInstructor = res.user.isInstructor;
         this.isStudent = res.user.isStudent;
@@ -73,6 +82,7 @@ export class StaticPageComponent implements OnInit {
         this.studentLoginUrl = `${this.backendUrl}${res.studentLoginUrl}`;
         this.instructorLoginUrl = `${this.backendUrl}${res.instructorLoginUrl}`;
       }
+      this.isFetchingAuthDetails = false;
     }, () => {
       // TODO
     });

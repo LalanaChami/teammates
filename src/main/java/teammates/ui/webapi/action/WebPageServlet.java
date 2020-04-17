@@ -16,10 +16,10 @@ public class WebPageServlet extends HttpServlet {
 
     private static final String CSP_POLICY = String.join("; ", Arrays.asList(
             "default-src 'none'",
-            "script-src 'self'",
+            "script-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
             "style-src 'self' 'unsafe-inline'",
-            "frame-src 'self' docs.google.com",
-            "img-src 'self' data:",
+            "frame-src 'self' docs.google.com https://www.google.com/recaptcha/",
+            "img-src 'self' data: http: https:",
             "font-src 'self'",
             "connect-src 'self'",
             "manifest-src 'self'",

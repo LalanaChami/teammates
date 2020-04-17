@@ -26,15 +26,23 @@ select {
   color: grey;
 }
 
-/deep/.modal-content {
+::ng-deep.modal-content {
   padding: 0 !important;
 }
 
-/deep/.close:focus {
+::ng-deep.close:focus {
   outline: 0;
 }
 
 .profile-pic {
-  height: 130px;
-  width: 130px;
+  height: 220px;
+  width: 220px;
+}
+
+.profile-pic-row {
+  margin-bottom: 1rem;
+}
+
+.upload-edit-photo {
+  margin-right: 5px;
 }

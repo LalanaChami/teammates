@@ -1,6 +1,5 @@
 package teammates.ui.webapi.action;
 
-import java.util.Arrays;
 import java.util.Map;
 
 import teammates.common.datatransfer.FeedbackParticipantType;
@@ -9,6 +8,7 @@ import teammates.common.datatransfer.attributes.FeedbackResponseAttributes;
 import teammates.common.datatransfer.attributes.FeedbackSessionAttributes;
 import teammates.common.datatransfer.attributes.InstructorAttributes;
 import teammates.common.datatransfer.attributes.StudentAttributes;
+import teammates.common.exception.EntityAlreadyExistsException;
 import teammates.common.exception.EntityDoesNotExistException;
 import teammates.common.exception.EntityNotFoundException;
 import teammates.common.exception.InvalidHttpParameterException;
@@ -16,6 +16,9 @@ import teammates.common.exception.InvalidHttpRequestBodyException;
 import teammates.common.exception.InvalidParametersException;
 import teammates.common.exception.UnauthorizedAccessException;
 import teammates.common.util.Const;
+import teammates.ui.webapi.output.FeedbackResponseData;
+import teammates.ui.webapi.request.FeedbackResponseCreateRequest;
+import teammates.ui.webapi.request.Intent;
 
 /**
  * Create a feedback response.
@@ -61,8 +64,7 @@ public class CreateFeedbackResponseAction extends BasicFeedbackSubmissionAction 
             throw new InvalidHttpParameterException("Unknown intent " + intent);
         }
 
-        FeedbackResponseInfo.FeedbackResponseCreateRequest createRequest =
-                getAndValidateRequestBody(FeedbackResponseInfo.FeedbackResponseCreateRequest.class);
+        FeedbackResponseCreateRequest createRequest = getAndValidateRequestBody(FeedbackResponseCreateRequest.class);
         if (!recipientsOfTheQuestion.containsKey(createRequest.getRecipientIdentifier())) {
             throw new UnauthorizedAccessException("The recipient is not a valid recipient of the question");
         }
@@ -74,49 +76,50 @@ public class CreateFeedbackResponseAction extends BasicFeedbackSubmissionAction 
         String feedbackQuestionId = getNonNullRequestParamValue(Const.ParamsNames.FEEDBACK_QUESTION_ID);
         FeedbackQuestionAttributes feedbackQuestion = logic.getFeedbackQuestion(feedbackQuestionId);
 
-        // TODO use builder pattern
-        FeedbackResponseAttributes feedbackResponse = new FeedbackResponseAttributes();
+        String giverIdentifier;
+        String giverSection;
         switch (intent) {
         case STUDENT_SUBMISSION:
             StudentAttributes studentAttributes = getStudentOfCourseFromRequest(feedbackQuestion.getCourseId());
-            feedbackResponse.giver =
-                    feedbackQuestion.getGiverType() == FeedbackParticipantType.TEAMS
+            giverIdentifier = feedbackQuestion.getGiverType() == FeedbackParticipantType.TEAMS
                             ? studentAttributes.getTeam() : studentAttributes.getEmail();
-            feedbackResponse.giverSection = studentAttributes.getSection();
+            giverSection = studentAttributes.getSection();
+            logic.populateFieldsToGenerateInQuestion(feedbackQuestion,
+                    studentAttributes.getEmail(), studentAttributes.getTeam());
             break;
         case INSTRUCTOR_SUBMISSION:
             InstructorAttributes instructorAttributes = getInstructorOfCourseFromRequest(feedbackQuestion.getCourseId());
-            feedbackResponse.giver = instructorAttributes.getEmail();
-            feedbackResponse.giverSection = Const.DEFAULT_SECTION;
+            giverIdentifier = instructorAttributes.getEmail();
+            giverSection = Const.DEFAULT_SECTION;
+            logic.populateFieldsToGenerateInQuestion(feedbackQuestion,
+                    instructorAttributes.getEmail(), null);
             break;
         default:
             throw new InvalidHttpParameterException("Unknown intent " + intent);
         }
 
-        FeedbackResponseInfo.FeedbackResponseCreateRequest createRequest =
-                getAndValidateRequestBody(FeedbackResponseInfo.FeedbackResponseCreateRequest.class);
-        feedbackResponse.recipient = createRequest.getRecipientIdentifier();
-        feedbackResponse.recipientSection =
-                getRecipientSection(feedbackQuestion.getCourseId(),
-                        feedbackQuestion.getRecipientType(), createRequest.getRecipientIdentifier());
-
-        feedbackResponse.courseId = feedbackQuestion.getCourseId();
-        feedbackResponse.feedbackSessionName = feedbackQuestion.getFeedbackSessionName();
-        feedbackResponse.feedbackQuestionType = feedbackQuestion.getQuestionType();
-        feedbackResponse.feedbackQuestionId = feedbackQuestion.getId();
-
-        feedbackResponse.setResponseDetails(createRequest.getResponseDetails());
+        FeedbackResponseCreateRequest createRequest = getAndValidateRequestBody(FeedbackResponseCreateRequest.class);
+        FeedbackResponseAttributes feedbackResponse =
+                FeedbackResponseAttributes
+                        .builder(feedbackQuestion.getId(), giverIdentifier, createRequest.getRecipientIdentifier())
+                .withGiverSection(giverSection)
+                .withRecipientSection(getRecipientSection(feedbackQuestion.getCourseId(),
+                        feedbackQuestion.getRecipientType(), createRequest.getRecipientIdentifier()))
+                .withCourseId(feedbackQuestion.getCourseId())
+                .withFeedbackSessionName(feedbackQuestion.getFeedbackSessionName())
+                .withResponseDetails(createRequest.getResponseDetails())
+                .build();
 
         validResponseOfQuestion(feedbackQuestion, feedbackResponse);
         try {
-            logic.createFeedbackResponses(Arrays.asList(feedbackResponse));
-        } catch (InvalidParametersException e) {
+            logic.createFeedbackResponse(feedbackResponse);
+        } catch (InvalidParametersException | EntityAlreadyExistsException e) {
             throw new InvalidHttpRequestBodyException(e.getMessage(), e);
         }
 
         FeedbackResponseAttributes createdFeedbackResponse = logic.getFeedbackResponse(
                 feedbackQuestion.getId() + "%" + feedbackResponse.giver + "%" + feedbackResponse.recipient);
-        return new JsonResult(new FeedbackResponseInfo.FeedbackResponseResponse(createdFeedbackResponse));
+        return new JsonResult(new FeedbackResponseData(createdFeedbackResponse));
     }
 
 }

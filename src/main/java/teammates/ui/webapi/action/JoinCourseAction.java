@@ -5,21 +5,16 @@ import org.apache.http.HttpStatus;
 import teammates.common.datatransfer.attributes.CourseAttributes;
 import teammates.common.datatransfer.attributes.InstructorAttributes;
 import teammates.common.datatransfer.attributes.StudentAttributes;
-import teammates.common.exception.EmailSendingException;
 import teammates.common.exception.EntityAlreadyExistsException;
 import teammates.common.exception.EntityDoesNotExistException;
 import teammates.common.exception.InvalidParametersException;
-import teammates.common.exception.TeammatesException;
 import teammates.common.util.Const;
 import teammates.common.util.EmailWrapper;
-import teammates.common.util.Logger;
 
 /**
  * Action: joins a course for a student/instructor.
  */
 public class JoinCourseAction extends Action {
-
-    private static final Logger log = Logger.getLogger();
 
     @Override
     protected AuthType getMinAuthLevel() {
@@ -40,7 +35,8 @@ public class JoinCourseAction extends Action {
             return joinCourseForStudent(regkey);
         case Const.EntityType.INSTRUCTOR:
             String institute = getRequestParamValue(Const.ParamsNames.INSTRUCTOR_INSTITUTION);
-            return joinCourseForInstructor(regkey, institute);
+            String mac = getRequestParamValue(Const.ParamsNames.INSTITUTION_MAC);
+            return joinCourseForInstructor(regkey, institute, mac);
         default:
             return new JsonResult("Error: invalid entity type", HttpStatus.SC_BAD_REQUEST);
         }
@@ -64,11 +60,11 @@ public class JoinCourseAction extends Action {
         return new JsonResult("Student successfully joined course", HttpStatus.SC_OK);
     }
 
-    private JsonResult joinCourseForInstructor(String regkey, String institute) {
+    private JsonResult joinCourseForInstructor(String regkey, String institute, String mac) {
         InstructorAttributes instructor;
 
         try {
-            instructor = logic.joinCourseForInstructor(regkey, userInfo.id, institute);
+            instructor = logic.joinCourseForInstructor(regkey, userInfo.id, institute, mac);
         } catch (EntityDoesNotExistException ednee) {
             return new JsonResult(ednee.getMessage(), HttpStatus.SC_NOT_FOUND);
         } catch (EntityAlreadyExistsException eaee) {
@@ -86,11 +82,7 @@ public class JoinCourseAction extends Action {
         CourseAttributes course = logic.getCourse(courseId);
         EmailWrapper email = emailGenerator.generateUserCourseRegisteredEmail(
                 userName, userEmail, userInfo.id, isInstructor, course);
-        try {
-            emailSender.sendEmail(email);
-        } catch (EmailSendingException e) {
-            log.severe("User course register email failed to send: " + TeammatesException.toStringWithStackTrace(e));
-        }
+        emailSender.sendEmail(email);
     }
 
 }

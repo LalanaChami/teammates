@@ -1,13 +1,13 @@
 package teammates.ui.controller;
 
 import teammates.common.datatransfer.FeedbackSessionResultsBundle;
+import teammates.common.datatransfer.SectionDetail;
 import teammates.common.datatransfer.attributes.FeedbackSessionAttributes;
 import teammates.common.datatransfer.attributes.InstructorAttributes;
 import teammates.common.exception.EntityDoesNotExistException;
 import teammates.common.exception.ExceedingRangeException;
 import teammates.common.util.Assumption;
 import teammates.common.util.Const;
-import teammates.common.util.SectionDetail;
 import teammates.common.util.StatusMessage;
 import teammates.common.util.StatusMessageColor;
 import teammates.common.util.StringHelper;
@@ -46,7 +46,7 @@ public class InstructorFeedbackResultsPageAction extends Action {
         if (selectedSection == null) {
             selectedSection = ALL_SECTION_OPTION;
         } else if (sectionDetailValue != null && !sectionDetailValue.isEmpty()) {
-            Assumption.assertNotNull(SectionDetail.containsSectionDetail(sectionDetailValue));
+            Assumption.assertTrue(SectionDetail.containsSectionDetail(sectionDetailValue));
             selectedSectionDetail = SectionDetail.valueOf(sectionDetailValue);
         }
 

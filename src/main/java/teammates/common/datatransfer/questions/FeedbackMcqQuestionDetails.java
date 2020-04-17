@@ -10,12 +10,9 @@ import java.util.Map;
 
 import teammates.common.datatransfer.FeedbackParticipantType;
 import teammates.common.datatransfer.FeedbackSessionResultsBundle;
-import teammates.common.datatransfer.TeamDetailsBundle;
 import teammates.common.datatransfer.attributes.FeedbackQuestionAttributes;
 import teammates.common.datatransfer.attributes.FeedbackResponseAttributes;
-import teammates.common.datatransfer.attributes.InstructorAttributes;
 import teammates.common.datatransfer.attributes.StudentAttributes;
-import teammates.common.exception.EntityDoesNotExistException;
 import teammates.common.util.Assumption;
 import teammates.common.util.Const;
 import teammates.common.util.HttpRequestHelper;
@@ -24,10 +21,6 @@ import teammates.common.util.SanitizationHelper;
 import teammates.common.util.Templates;
 import teammates.common.util.Templates.FeedbackQuestion.FormTemplates;
 import teammates.common.util.Templates.FeedbackQuestion.Slots;
-import teammates.logic.core.CoursesLogic;
-import teammates.logic.core.InstructorsLogic;
-import teammates.logic.core.StudentsLogic;
-import teammates.ui.template.InstructorFeedbackResultsResponseRow;
 
 public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
     private static final Logger log = Logger.getLogger();
@@ -39,7 +32,6 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
     private List<String> mcqChoices;
     private boolean otherEnabled;
     private FeedbackParticipantType generateOptionsFor;
-    private StudentAttributes studentDoingQuestion;
 
     public FeedbackMcqQuestionDetails() {
         super(FeedbackQuestionType.MCQ);
@@ -60,6 +52,10 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
 
     public int getNumOfMcqChoices() {
         return numOfMcqChoices;
+    }
+
+    public void setNumOfMcqChoices(int numOfMcqChoices) {
+        this.numOfMcqChoices = numOfMcqChoices;
     }
 
     public List<String> getMcqChoices() {
@@ -131,6 +127,14 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
 
     public FeedbackParticipantType getGenerateOptionsFor() {
         return generateOptionsFor;
+    }
+
+    public void setGenerateOptionsFor(FeedbackParticipantType generateOptionsFor) {
+        this.generateOptionsFor = generateOptionsFor;
+    }
+
+    public void setMcqChoices(List<String> mcqChoices) {
+        this.mcqChoices = mcqChoices;
     }
 
     @Override
@@ -236,9 +240,8 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
     public String getQuestionWithExistingResponseSubmissionFormHtml(boolean sessionIsOpen, int qnIdx,
             int responseIdx, String courseId, int totalNumRecipients, FeedbackResponseDetails existingResponseDetails,
             StudentAttributes student) {
-        studentDoingQuestion = student;
         FeedbackMcqResponseDetails existingMcqResponse = (FeedbackMcqResponseDetails) existingResponseDetails;
-        List<String> choices = generateOptionList(courseId);
+        List<String> choices = new ArrayList<>();
 
         StringBuilder optionListHtml = new StringBuilder();
         String optionFragmentTemplate = FormTemplates.MCQ_SUBMISSION_FORM_OPTIONFRAGMENT;
@@ -281,8 +284,7 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
     public String getQuestionWithoutExistingResponseSubmissionFormHtml(
             boolean sessionIsOpen, int qnIdx, int responseIdx, String courseId, int totalNumRecipients,
             StudentAttributes student) {
-        studentDoingQuestion = student;
-        List<String> choices = generateOptionList(courseId);
+        List<String> choices = new ArrayList<>();
 
         StringBuilder optionListHtml = new StringBuilder();
         String optionFragmentTemplate = FormTemplates.MCQ_SUBMISSION_FORM_OPTIONFRAGMENT;
@@ -319,65 +321,6 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
         return Templates.populateTemplate(
                 FormTemplates.MCQ_SUBMISSION_FORM,
                 Slots.MCQ_SUBMISSION_FORM_OPTION_FRAGMENTS, optionListHtml.toString());
-    }
-
-    private List<String> generateOptionList(String courseId) {
-        List<String> optionList = new ArrayList<>();
-
-        switch (generateOptionsFor) {
-        case NONE:
-            optionList = mcqChoices;
-            break;
-        case STUDENTS:
-            //fallthrough
-        case STUDENTS_EXCLUDING_SELF:
-            List<StudentAttributes> studentList = StudentsLogic.inst().getStudentsForCourse(courseId);
-
-            if (generateOptionsFor == FeedbackParticipantType.STUDENTS_EXCLUDING_SELF) {
-                studentList.removeIf(studentInList -> studentInList.email.equals(studentDoingQuestion.email));
-            }
-
-            for (StudentAttributes student : studentList) {
-                optionList.add(student.name + " (" + student.team + ")");
-            }
-
-            optionList.sort(null);
-            break;
-        case TEAMS:
-            //fallthrough
-        case TEAMS_EXCLUDING_SELF:
-            try {
-                List<TeamDetailsBundle> teamList = CoursesLogic.inst().getTeamsForCourse(courseId);
-
-                if (generateOptionsFor == FeedbackParticipantType.TEAMS_EXCLUDING_SELF) {
-                    teamList.removeIf(teamInList -> teamInList.name.equals(studentDoingQuestion.team));
-                }
-
-                for (TeamDetailsBundle team : teamList) {
-                    optionList.add(team.name);
-                }
-
-                optionList.sort(null);
-            } catch (EntityDoesNotExistException e) {
-                Assumption.fail("Course disappeared");
-            }
-            break;
-        case INSTRUCTORS:
-            List<InstructorAttributes> instructorList =
-                    InstructorsLogic.inst().getInstructorsForCourse(courseId);
-
-            for (InstructorAttributes instructor : instructorList) {
-                optionList.add(instructor.name);
-            }
-
-            optionList.sort(null);
-            break;
-        default:
-            Assumption.fail("Trying to generate options for neither students, teams nor instructors");
-            break;
-        }
-
-        return optionList;
     }
 
     @Override
@@ -459,49 +402,6 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
     }
 
     @Override
-    public String getQuestionAdditionalInfoHtml(int questionNumber, String additionalInfoId) {
-        StringBuilder optionListHtml = new StringBuilder(200);
-        String optionFragmentTemplate = FormTemplates.MCQ_ADDITIONAL_INFO_FRAGMENT;
-
-        if (generateOptionsFor != FeedbackParticipantType.NONE) {
-            String optionHelpText = String.format(
-                    "<br>The options for this question is automatically generated from the list of all %s in this course.",
-                    generateOptionsFor.toString().toLowerCase());
-            optionListHtml.append(optionHelpText);
-        }
-
-        if (numOfMcqChoices > 0) {
-            optionListHtml.append("<ul style=\"list-style-type: disc;margin-left: 20px;\" >");
-            for (int i = 0; i < numOfMcqChoices; i++) {
-                String optionFragment =
-                        Templates.populateTemplate(optionFragmentTemplate,
-                                Slots.MCQ_CHOICE_VALUE, SanitizationHelper.sanitizeForHtml(mcqChoices.get(i)));
-
-                optionListHtml.append(optionFragment);
-            }
-        }
-        if (otherEnabled) {
-            String optionFragment =
-                    Templates.populateTemplate(optionFragmentTemplate, Slots.MCQ_CHOICE_VALUE, "Others");
-            optionListHtml.append(optionFragment);
-        }
-        optionListHtml.append("</ul>");
-
-        String additionalInfo = Templates.populateTemplate(
-                FormTemplates.MCQ_ADDITIONAL_INFO,
-                Slots.QUESTION_TYPE_NAME, this.getQuestionTypeDisplayName(),
-                Slots.MCQ_ADDITIONAL_INFO_FRAGMENTS, optionListHtml.toString());
-
-        return Templates.populateTemplate(
-                FormTemplates.FEEDBACK_QUESTION_ADDITIONAL_INFO,
-                Slots.MORE, "[more]",
-                Slots.LESS, "[less]",
-                Slots.QUESTION_NUMBER, Integer.toString(questionNumber),
-                Slots.ADDITIONAL_INFO_ID, additionalInfoId,
-                Slots.QUESTION_ADDITIONAL_INFO, additionalInfo);
-    }
-
-    @Override
     public String getQuestionResultStatisticsHtml(List<FeedbackResponseAttributes> responses,
             FeedbackQuestionAttributes question,
             String studentEmail,
@@ -561,6 +461,14 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
     }
 
     @Override
+    public String getQuestionResultStatisticsJson(
+            List<FeedbackResponseAttributes> responses, FeedbackQuestionAttributes question,
+            String userEmail, FeedbackSessionResultsBundle bundle, boolean isStudent) {
+        // TODO
+        return "";
+    }
+
+    @Override
     public String getQuestionResultStatisticsCsv(
             List<FeedbackResponseAttributes> responses,
             FeedbackQuestionAttributes question,
@@ -604,6 +512,12 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
                         + Const.FeedbackQuestion.MCQ_MIN_NUM_OF_CHOICES + ".");
             }
 
+            // If there are Empty Mcq options entered trigger this error
+            boolean isEmptyMcqOptionEntered = mcqChoices.stream().anyMatch(mcqText -> mcqText.trim().equals(""));
+            if (isEmptyMcqOptionEntered) {
+                errors.add(Const.FeedbackQuestion.MCQ_ERROR_EMPTY_MCQ_OPTION);
+            }
+
             // If weights are enabled, number of choices and weights should be same.
             // If user enters an invalid weight for a valid choice,
             // the mcqChoices.size() will be greater than mcqWeights.size(),
@@ -638,8 +552,14 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
                     errors.add(Const.FeedbackQuestion.MCQ_ERROR_INVALID_WEIGHT);
                 }
             }
+
+            //If there are duplicate mcq options trigger this error
+            boolean isDuplicateOptionsEntered = mcqChoices.stream().map(String::trim).distinct().count()
+                                                != mcqChoices.size();
+            if (isDuplicateOptionsEntered) {
+                errors.add(Const.FeedbackQuestion.MCQ_ERROR_DUPLICATE_MCQ_OPTION);
+            }
         }
-        //TODO: check that mcq options do not repeat. needed?
 
         return errors;
     }
@@ -659,11 +579,6 @@ public class FeedbackMcqQuestionDetails extends FeedbackQuestionDetails {
             }
         }
         return errors;
-    }
-
-    @Override
-    public Comparator<InstructorFeedbackResultsResponseRow> getResponseRowsSortOrder() {
-        return null;
     }
 
     @Override

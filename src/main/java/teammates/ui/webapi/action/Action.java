@@ -4,23 +4,23 @@ import java.lang.reflect.Type;
 import java.util.Optional;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 import teammates.common.datatransfer.UserInfo;
 import teammates.common.datatransfer.attributes.StudentAttributes;
 import teammates.common.exception.InvalidHttpParameterException;
-import teammates.common.exception.InvalidHttpRequestBodyException;
 import teammates.common.exception.NullHttpParameterException;
 import teammates.common.exception.UnauthorizedAccessException;
 import teammates.common.util.Config;
 import teammates.common.util.Const;
 import teammates.common.util.HttpRequestHelper;
 import teammates.common.util.JsonUtils;
+import teammates.common.util.StringHelper;
 import teammates.logic.api.EmailGenerator;
 import teammates.logic.api.EmailSender;
 import teammates.logic.api.GateKeeper;
 import teammates.logic.api.Logic;
 import teammates.logic.api.TaskQueuer;
+import teammates.ui.webapi.request.BasicRequest;
 
 /**
  * An "action" to be performed by the system.
@@ -36,7 +36,6 @@ public abstract class Action {
     protected EmailSender emailSender = new EmailSender();
 
     protected HttpServletRequest req;
-    protected HttpServletResponse resp;
     protected UserInfo userInfo;
     protected AuthType authType;
 
@@ -46,9 +45,8 @@ public abstract class Action {
     /**
      * Initializes the action object based on the HTTP request.
      */
-    protected void init(HttpServletRequest req, HttpServletResponse resp) {
+    protected void init(HttpServletRequest req) {
         this.req = req;
-        this.resp = resp;
         initAuthInfo();
     }
 
@@ -141,6 +139,20 @@ public abstract class Action {
     }
 
     /**
+     * Returns the first value for the specified parameter expected to be present in the HTTP request as long.
+     */
+    @SuppressWarnings("PMD.PreserveStackTrace")
+    protected long getLongRequestParamValue(String paramName) {
+        String value = getNonNullRequestParamValue(paramName);
+        try {
+            return Long.parseLong(value);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidHttpParameterException(
+                    "Expected long value for " + paramName + " parameter, but found: [" + value + "]");
+        }
+    }
+
+    /**
      * Returns the values for the specified parameter in the HTTP request, or null if such parameter is not found.
      */
     protected String[] getRequestParamValues(String paramName) {
@@ -171,8 +183,11 @@ public abstract class Action {
     /**
      * Deserializes and validates the request body payload.
      */
-    protected <T extends RequestBody> T getAndValidateRequestBody(Type typeOfBody) {
+    protected <T extends BasicRequest> T getAndValidateRequestBody(Type typeOfBody) {
         T requestBody = JsonUtils.fromJson(getRequestBody(), typeOfBody);
+        if (requestBody == null) {
+            throw new NullHttpParameterException(Const.StatusCodes.NULL_BODY_PARAMETER);
+        }
         requestBody.validate();
         return requestBody;
     }
@@ -184,7 +199,7 @@ public abstract class Action {
      */
     protected Optional<StudentAttributes> getUnregisteredStudent() {
         String key = getRequestParamValue(Const.ParamsNames.REGKEY);
-        if (key != null) {
+        if (!StringHelper.isEmpty(key)) {
             StudentAttributes studentAttributes = logic.getStudentForRegistrationKey(key);
             if (studentAttributes == null) {
                 throw new UnauthorizedAccessException("RegKey is not valid.");
@@ -209,25 +224,5 @@ public abstract class Action {
      * Executes the action.
      */
     public abstract ActionResult execute();
-
-    /**
-     * The request body of a HTTP request.
-     */
-    public abstract static class RequestBody {
-
-        /**
-         * Validate the request.
-         */
-        public abstract void validate();
-
-        /**
-         * Asserts a condition or throws {@link InvalidHttpRequestBodyException}.
-         */
-        public void assertTrue(boolean condition, String message) {
-            if (!condition) {
-                throw new InvalidHttpRequestBodyException(message);
-            }
-        }
-    }
 
 }

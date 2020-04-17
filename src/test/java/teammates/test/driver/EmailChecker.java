@@ -21,13 +21,10 @@ public final class EmailChecker {
 
     /**
      * Verifies that the given {@code emailContent} is the same as
-     * the content given in the file at {@code filePathParam}. <br>
-     * @param filePathParam
-     *         If this starts with "/" (e.g., "/expected.html"), the
-     *         folder is assumed to be {@link TestProperties#TEST_EMAILS_FOLDER}.
+     * the content given in the file at {@code fileName}. <br>
      */
-    public static void verifyEmailContent(String emailContent, String filePathParam) throws IOException {
-        String filePath = (filePathParam.charAt(0) == '/' ? TestProperties.TEST_EMAILS_FOLDER : "") + filePathParam;
+    public static void verifyEmailContent(String emailContent, String fileName) throws IOException {
+        String filePath = TestProperties.TEST_EMAILS_FOLDER + fileName;
         String actual = processEmailForComparison(emailContent);
         try {
             String expected = FileHelper.readFile(filePath);
@@ -37,14 +34,14 @@ public final class EmailChecker {
                         "<actual>" + System.lineSeparator() + actual + "</actual>");
             }
         } catch (IOException | AssertionError e) {
-            if (!testAndRunGodMode(filePath, actual)) {
+            if (!updateSnapshot(filePath, actual)) {
                 throw e;
             }
         }
     }
 
-    private static boolean testAndRunGodMode(String filePath, String emailContent) throws IOException {
-        return TestProperties.IS_GODMODE_ENABLED && regenerateEmailFile(filePath, emailContent);
+    private static boolean updateSnapshot(String filePath, String emailContent) throws IOException {
+        return TestProperties.IS_SNAPSHOT_UPDATE && regenerateEmailFile(filePath, emailContent);
     }
 
     private static boolean regenerateEmailFile(String filePath, String emailContent) throws IOException {

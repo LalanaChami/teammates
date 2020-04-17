@@ -3,14 +3,15 @@ import { NgbDateParserFormatter, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import moment from 'moment-timezone';
 import { environment } from '../../../environments/environment';
 import { TemplateSession } from '../../../services/feedback-sessions.service';
-import { Course } from '../../course';
+import { NavigationService } from '../../../services/navigation.service';
 import {
-  FEEDBACK_SESSION_NAME_MAX_LENGTH,
+  Course,
   FeedbackSessionPublishStatus,
   FeedbackSessionSubmissionStatus,
   ResponseVisibleSetting,
   SessionVisibleSetting,
-} from '../../feedback-session';
+} from '../../../types/api-output';
+import { FEEDBACK_SESSION_NAME_MAX_LENGTH } from '../../../types/field-validator';
 import { SessionEditFormDatePickerFormatter } from './session-edit-form-datepicker-formatter';
 import { DateFormat, SessionEditFormMode, SessionEditFormModel } from './session-edit-form-model';
 
@@ -97,7 +98,10 @@ export class SessionEditFormComponent implements OnInit {
   @Output()
   copyOtherSessionsEvent: EventEmitter<void> = new EventEmitter<void>();
 
-  constructor(private modalService: NgbModal) { }
+  @Output()
+  closeEditFormEvent: EventEmitter<void> = new EventEmitter<void>();
+
+  constructor(private modalService: NgbModal, private navigationService: NavigationService) { }
 
   ngOnInit(): void {
   }
@@ -225,7 +229,13 @@ export class SessionEditFormComponent implements OnInit {
    * Handles session 'Help' link click event.
    */
   sessionHelpHandler(): void {
-    window.open(`${environment.frontendUrl}/web/instructor/help`);
-    // TODO scroll down to the session setup specific section in the help page
+    this.navigationService.openNewWindow(`${environment.frontendUrl}/web/instructor/help#sessions`);
+  }
+
+  /**
+   * Handles closing of the edit form.
+   */
+  closeEditFormHandler(): void {
+    this.closeEditFormEvent.emit();
   }
 }

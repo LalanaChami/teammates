@@ -7,6 +7,8 @@ import teammates.common.datatransfer.attributes.InstructorAttributes;
 import teammates.common.exception.InvalidHttpRequestBodyException;
 import teammates.common.exception.InvalidParametersException;
 import teammates.common.util.Const;
+import teammates.ui.webapi.output.FeedbackQuestionData;
+import teammates.ui.webapi.request.FeedbackQuestionCreateRequest;
 
 /**
  * Create a feedback question.
@@ -34,20 +36,18 @@ public class CreateFeedbackQuestionAction extends Action {
         String courseId = getNonNullRequestParamValue(Const.ParamsNames.COURSE_ID);
         String feedbackSessionName = getNonNullRequestParamValue(Const.ParamsNames.FEEDBACK_SESSION_NAME);
 
-        FeedbackQuestionInfo.FeedbackQuestionCreateRequest request =
-                getAndValidateRequestBody(FeedbackQuestionInfo.FeedbackQuestionCreateRequest.class);
+        FeedbackQuestionCreateRequest request = getAndValidateRequestBody(FeedbackQuestionCreateRequest.class);
         FeedbackQuestionAttributes attributes = FeedbackQuestionAttributes.builder()
                 .withCourseId(courseId)
                 .withFeedbackSessionName(feedbackSessionName)
                 .withGiverType(request.getGiverType())
                 .withRecipientType(request.getRecipientType())
                 .withQuestionNumber(request.getQuestionNumber())
-                .withNumOfEntitiesToGiveFeedbackTo(request.getNumberOfEntitiesToGiveFeedbackTo())
-                .withShowResponseTo(request.getShowResponsesTo())
+                .withNumberOfEntitiesToGiveFeedbackTo(request.getNumberOfEntitiesToGiveFeedbackTo())
+                .withShowResponsesTo(request.getShowResponsesTo())
                 .withShowGiverNameTo(request.getShowGiverNameTo())
                 .withShowRecipientNameTo(request.getShowRecipientNameTo())
-                .withQuestionType(request.getQuestionType())
-                .withQuestionMetaData(request.getQuestionDetails())
+                .withQuestionDetails(request.getQuestionDetails())
                 .withQuestionDescription(request.getQuestionDescription())
                 .build();
 
@@ -69,7 +69,7 @@ public class CreateFeedbackQuestionAction extends Action {
             throw new InvalidHttpRequestBodyException(e.getMessage(), e);
         }
 
-        return new JsonResult(new FeedbackQuestionInfo.FeedbackQuestionResponse(attributes));
+        return new JsonResult(new FeedbackQuestionData(attributes));
     }
 
 }

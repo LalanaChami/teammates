@@ -1,7 +1,5 @@
 package teammates.ui.webapi.action;
 
-import java.time.Instant;
-
 import teammates.common.datatransfer.attributes.CourseAttributes;
 import teammates.common.datatransfer.attributes.FeedbackSessionAttributes;
 import teammates.common.datatransfer.attributes.InstructorAttributes;
@@ -10,6 +8,8 @@ import teammates.common.exception.InvalidHttpRequestBodyException;
 import teammates.common.exception.InvalidParametersException;
 import teammates.common.util.Const;
 import teammates.common.util.SanitizationHelper;
+import teammates.ui.webapi.output.FeedbackSessionData;
+import teammates.ui.webapi.request.FeedbackSessionCreateRequest;
 
 /**
  * Create a feedback session.
@@ -38,25 +38,24 @@ public class CreateFeedbackSessionAction extends Action {
         InstructorAttributes instructor = logic.getInstructorForGoogleId(courseId, userInfo.getId());
         CourseAttributes course = logic.getCourse(courseId);
 
-        FeedbackSessionInfo.FeedbackSessionCreateRequest createRequest =
-                getAndValidateRequestBody(FeedbackSessionInfo.FeedbackSessionCreateRequest.class);
+        FeedbackSessionCreateRequest createRequest =
+                getAndValidateRequestBody(FeedbackSessionCreateRequest.class);
 
         String feedbackSessionName = SanitizationHelper.sanitizeTitle(createRequest.getFeedbackSessionName());
 
         FeedbackSessionAttributes fs =
                 FeedbackSessionAttributes
-                        .builder(feedbackSessionName, course.getId(), instructor.getEmail())
+                        .builder(feedbackSessionName, course.getId())
+                        .withCreatorEmail(instructor.getEmail())
                         .withTimeZone(course.getTimeZone())
                         .withInstructions(createRequest.getInstructions())
                         .withStartTime(createRequest.getSubmissionStartTime())
                         .withEndTime(createRequest.getSubmissionEndTime())
-                        .withGracePeriodMinutes(createRequest.getGracePeriod())
+                        .withGracePeriod(createRequest.getGracePeriod())
                         .withSessionVisibleFromTime(createRequest.getSessionVisibleFromTime())
                         .withResultsVisibleFromTime(createRequest.getResultsVisibleFromTime())
-                        .withOpeningEmailEnabled(true)
-                        .withClosingEmailEnabled(createRequest.isClosingEmailEnabled())
-                        .withPublishedEmailEnabled(createRequest.isPublishedEmailEnabled())
-                        .withCreatedTime(Instant.now())
+                        .withIsClosingEmailEnabled(createRequest.isClosingEmailEnabled())
+                        .withIsPublishedEmailEnabled(createRequest.isPublishedEmailEnabled())
                         .build();
 
         try {
@@ -66,7 +65,7 @@ public class CreateFeedbackSessionAction extends Action {
         }
 
         fs = logic.getFeedbackSession(fs.getFeedbackSessionName(), fs.getCourseId());
-        return new JsonResult(new FeedbackSessionInfo.FeedbackSessionResponse(fs));
+        return new JsonResult(new FeedbackSessionData(fs));
     }
 
 }

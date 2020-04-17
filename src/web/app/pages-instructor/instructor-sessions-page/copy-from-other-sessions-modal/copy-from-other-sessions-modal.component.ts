@@ -1,7 +1,7 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
-import { Course } from '../../../course';
-import { FEEDBACK_SESSION_NAME_MAX_LENGTH, FeedbackSession } from '../../../feedback-session';
+import { Course, FeedbackSession } from '../../../../types/api-output';
+import { FEEDBACK_SESSION_NAME_MAX_LENGTH } from '../../../../types/field-validator';
 
 /**
  * Modal for creating new feedback session by copying from other feedback sessions.

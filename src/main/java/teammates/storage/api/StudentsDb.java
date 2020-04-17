@@ -4,20 +4,21 @@ import static com.googlecode.objectify.ObjectifyService.ofy;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.google.appengine.api.search.Results;
 import com.google.appengine.api.search.ScoredDocument;
+import com.googlecode.objectify.Key;
 import com.googlecode.objectify.cmd.LoadType;
 import com.googlecode.objectify.cmd.Query;
-import com.googlecode.objectify.cmd.QueryKeys;
 
+import teammates.common.datatransfer.AttributesDeletionQuery;
 import teammates.common.datatransfer.StudentSearchResultBundle;
 import teammates.common.datatransfer.attributes.InstructorAttributes;
 import teammates.common.datatransfer.attributes.StudentAttributes;
 import teammates.common.exception.EntityAlreadyExistsException;
 import teammates.common.exception.EntityDoesNotExistException;
 import teammates.common.exception.InvalidParametersException;
-import teammates.common.exception.TeammatesException;
 import teammates.common.util.Assumption;
 import teammates.common.util.Const;
 import teammates.common.util.Logger;
@@ -35,10 +36,11 @@ import teammates.storage.search.StudentSearchQuery;
  */
 public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
 
-    public static final String ERROR_UPDATE_EMAIL_ALREADY_USED = "Trying to update to an email that is already used by: ";
-
     private static final Logger log = Logger.getLogger();
 
+    /**
+     * Creates or updates search document for the given student.
+     */
     public void putDocument(StudentAttributes student) {
         putDocument(Const.SearchIndex.STUDENT, new StudentSearchDocument(student));
     }
@@ -51,12 +53,13 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
         for (StudentAttributes student : students) {
             studentDocuments.add(new StudentSearchDocument(student));
         }
-        putDocuments(Const.SearchIndex.STUDENT, studentDocuments);
+        putDocument(Const.SearchIndex.STUDENT, studentDocuments.toArray(new SearchDocument[0]));
     }
 
     /**
      * Searches for students.
-     * @return {@link StudentSearchResultBundle}
+     *
+     * @param instructors the constraint that restricts the search result
      */
     public StudentSearchResultBundle search(String queryString, List<InstructorAttributes> instructors) {
         if (queryString.trim().isEmpty()) {
@@ -70,10 +73,11 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
     }
 
     /**
-     * This method should be used by admin only since the searching does not restrict the
+     * Searches all students in the system.
+     *
+     * <p>This method should be used by admin only since the searching does not restrict the
      * visibility according to the logged-in user's google ID. This is used by admin to
-     * search students in the whole system.
-     * @return null if no result found
+     * search instructors in the whole system.
      */
     public StudentSearchResultBundle searchStudentsInWholeSystem(String queryString) {
         if (queryString.trim().isEmpty()) {
@@ -95,20 +99,25 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
         deleteDocument(Const.SearchIndex.STUDENT, unencryptedRegistrationKey);
     }
 
-    public void createStudent(StudentAttributes student)
+    /**
+     * Creates a student.
+     *
+     * @return the created student
+     * @throws InvalidParametersException if the student is not valid
+     * @throws EntityAlreadyExistsException if the student already exists in the Datastore
+     */
+    @Override
+    public StudentAttributes createEntity(StudentAttributes student)
             throws InvalidParametersException, EntityAlreadyExistsException {
 
-        CourseStudent createdStudent = createEntity(student);
-        putDocument(makeAttributes(createdStudent));
+        StudentAttributes createdStudent = super.createEntity(student);
+        putDocument(createdStudent);
 
+        return createdStudent;
     }
 
     /**
-     * Preconditions: <br>
-     * * All parameters are non-null.
-     *
-     * @return The data for Student with the courseId and email. Returns null if
-     *         there is no such student.
+     * Gets a student by unique ID courseId-email.
      */
     public StudentAttributes getStudentForEmail(String courseId, String email) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseId);
@@ -118,9 +127,17 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
     }
 
     /**
-     * Preconditions:
-     * <br> * All parameters are non-null.
-     * @return null if no such student is found.
+     * Gets list of students by email.
+     */
+    public List<StudentAttributes> getAllStudentsForEmail(String email) {
+        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, email);
+
+        List<CourseStudent> students = getAllCourseStudentEntitiesForEmail(email);
+        return students.stream().map(this::makeAttributes).collect(Collectors.toList());
+    }
+
+    /**
+     * Gets a student by unique constraint courseId-googleId.
      */
     public StudentAttributes getStudentForGoogleId(String courseId, String googleId) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, googleId);
@@ -135,12 +152,7 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
     }
 
     /**
-     * Works only for encrypted keys.
-     *
-     * <p>Preconditions: <br>
-     * All parameters are non-null.
-     *
-     * @return null if no matching student.
+     * Gets a student by unique constraint encryptedKey.
      */
     public StudentAttributes getStudentForRegistrationKey(String encryptedRegistrationKey) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, encryptedRegistrationKey);
@@ -150,19 +162,11 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
             return makeAttributesOrNull(getCourseStudentEntityForRegistrationKey(decryptedKey));
         } catch (InvalidParametersException e) {
             return null; // invalid registration key cannot be decrypted
-        } catch (Exception e) {
-            // TODO change this to an Assumption.fail
-            log.severe("Exception thrown trying to retrieve CourseStudent \n"
-                    + TeammatesException.toStringWithStackTrace(e));
-            return null;
         }
-
     }
 
     /**
-     * Preconditions:
-     * <br> * All parameters are non-null.
-     * @return an empty list if no such students are found.
+     * Gets all students associated with a googleId.
      */
     public List<StudentAttributes> getStudentsForGoogleId(String googleId) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, googleId);
@@ -171,9 +175,7 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
     }
 
     /**
-     * Preconditions: <br>
-     *  * All parameters are non-null.
-     * @return an empty list if no students in the course.
+     * Gets all students of a course.
      */
     public List<StudentAttributes> getStudentsForCourse(String courseId) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseId);
@@ -182,9 +184,7 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
     }
 
     /**
-     * Preconditions: <br>
-     *  * All parameters are non-null.
-     * @return an empty list if no students in the course.
+     * Gets all students of a team of a course.
      */
     public List<StudentAttributes> getStudentsForTeam(String teamName, String courseId) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, teamName);
@@ -194,9 +194,7 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
     }
 
     /**
-     * Preconditions: <br>
-     * All parameters are non-null.
-     * @return an empty list if no students in this section
+     * Gets all students in a section of a course.
      */
     public List<StudentAttributes> getStudentsForSection(String sectionName, String courseId) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, sectionName);
@@ -206,15 +204,13 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
     }
 
     /**
-     * Preconditions: <br>
-     *  * All parameters are non-null.
-     * @return an empty list if no students in the course.
+     * Gets all unregistered students of a course.
      */
     public List<StudentAttributes> getUnregisteredStudentsForCourse(String courseId) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseId);
 
         List<StudentAttributes> allStudents = getStudentsForCourse(courseId);
-        ArrayList<StudentAttributes> unregistered = new ArrayList<>();
+        List<StudentAttributes> unregistered = new ArrayList<>();
 
         for (StudentAttributes s : allStudents) {
             if (s.googleId == null || s.googleId.trim().isEmpty()) {
@@ -224,141 +220,113 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
         return unregistered;
     }
 
-    public void updateStudent(String courseId, String email, String newName,
-            String newTeamName, String newSectionName, String newEmail, String newGoogleId,
-            String newComments)
-            throws InvalidParametersException, EntityDoesNotExistException {
-        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseId);
-        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, email);
+    /**
+     * Updates a student by {@link StudentAttributes.UpdateOptions}.
+     *
+     * <p>If the student's email is changed, the student is re-created.
+     *
+     * @return updated student
+     * @throws InvalidParametersException if attributes to update are not valid
+     * @throws EntityDoesNotExistException if the student cannot be found
+     * @throws EntityAlreadyExistsException if the student cannot be updated
+     *         by recreation because of an existent student
+     */
+    public StudentAttributes updateStudent(StudentAttributes.UpdateOptions updateOptions)
+            throws EntityDoesNotExistException, InvalidParametersException, EntityAlreadyExistsException {
+        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, updateOptions);
 
-        verifyStudentExists(courseId, email);
+        CourseStudent student = getCourseStudentEntityForEmail(updateOptions.getCourseId(), updateOptions.getEmail());
+        if (student == null) {
+            throw new EntityDoesNotExistException(ERROR_UPDATE_NON_EXISTENT + updateOptions);
 
-        // Update CourseStudent if it exists.
-        CourseStudent courseStudent = getCourseStudentEntityForEmail(courseId, email);
-        if (courseStudent != null) {
-            boolean isEmailChanged = !email.equals(newEmail);
-            String lastName = StringHelper.splitName(newName)[1];
+        }
 
-            if (isEmailChanged) {
-                CourseStudent newCourseStudent = new CourseStudent(newEmail, newName, newGoogleId, newComments,
-                                                                   courseId, newTeamName, newSectionName);
-                recreateStudentWithNewEmail(newCourseStudent, lastName, courseStudent,
-                                            courseId, email);
-            } else {
-                updateStudentDetails(newName, newTeamName, newSectionName, newGoogleId,
-                                     newComments, courseStudent, lastName);
+        StudentAttributes newAttributes = makeAttributes(student);
+        newAttributes.update(updateOptions);
+
+        newAttributes.sanitizeForSaving();
+        if (!newAttributes.isValid()) {
+            throw new InvalidParametersException(newAttributes.getInvalidityInfo());
+        }
+
+        boolean isEmailChanged = !student.getEmail().equals(newAttributes.email);
+
+        if (isEmailChanged) {
+            newAttributes = createEntity(newAttributes);
+            // delete the old student
+            deleteStudent(student.getCourseId(), student.getEmail());
+
+            putDocument(newAttributes);
+            return newAttributes;
+        } else {
+            // update only if change
+            boolean hasSameAttributes =
+                    this.<String>hasSameValue(student.getName(), newAttributes.getName())
+                    && this.<String>hasSameValue(student.getLastName(), newAttributes.getLastName())
+                    && this.<String>hasSameValue(student.getComments(), newAttributes.getComments())
+                    && this.<String>hasSameValue(student.getGoogleId(), newAttributes.getGoogleId())
+                    && this.<String>hasSameValue(student.getTeamName(), newAttributes.getTeam())
+                    && this.<String>hasSameValue(student.getSectionName(), newAttributes.getSection());
+            if (hasSameAttributes) {
+                log.info(String.format(OPTIMIZED_SAVING_POLICY_APPLIED, CourseStudent.class.getSimpleName(), updateOptions));
+                return newAttributes;
             }
+
+            student.setName(newAttributes.name);
+            student.setLastName(newAttributes.lastName);
+            student.setComments(newAttributes.comments);
+            student.setGoogleId(newAttributes.googleId);
+            student.setTeamName(newAttributes.team);
+            student.setSectionName(newAttributes.section);
+
+            putDocument(newAttributes);
+
+            saveEntity(student);
+
+            newAttributes = makeAttributes(student);
+            putDocument(newAttributes);
+
+            return newAttributes;
         }
     }
-
-    @SuppressWarnings("PMD.PreserveStackTrace")
-    private void recreateStudentWithNewEmail(
-            CourseStudent newCourseStudent, String lastName, CourseStudent courseStudent,
-            String courseId, String email)
-            throws InvalidParametersException {
-        newCourseStudent.setLastName(lastName);
-        newCourseStudent.setCreatedAt(courseStudent.getCreatedAt());
-
-        StudentAttributes newCourseStudentAttributes = makeAttributes(newCourseStudent);
-        try {
-            createStudent(newCourseStudentAttributes);
-        } catch (EntityAlreadyExistsException e) {
-            CourseStudent existingStudent = getEntity(newCourseStudentAttributes);
-            String error = ERROR_UPDATE_EMAIL_ALREADY_USED + existingStudent.getName() + "/" + existingStudent.getEmail();
-            throw new InvalidParametersException(error);
-        }
-
-        deleteStudent(courseId, email);
-    }
-
-    private void updateStudentDetails(String newName, String newTeamName, String newSectionName,
-            String newGoogleId, String newComments,
-            CourseStudent courseStudent, String lastName) {
-        courseStudent.setName(newName);
-        courseStudent.setLastName(lastName);
-        courseStudent.setComments(newComments);
-        courseStudent.setGoogleId(newGoogleId);
-        courseStudent.setTeamName(newTeamName);
-        courseStudent.setSectionName(newSectionName);
-
-        StudentAttributes attributes = makeAttributes(courseStudent);
-        putDocument(attributes);
-
-        saveEntity(courseStudent, attributes);
-    }
-
-    //TODO: add an updateStudent(StudentAttributes) version and make the above private
 
     /**
-     * Fails silently if no such student. <br>
-     * Preconditions: <br>
-     *  * All parameters are non-null.
+     * Deletes a student in a course with email.
      *
+     * <p>Fails silently if there is no such student.
      */
-
     public void deleteStudent(String courseId, String email) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseId);
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, email);
 
         CourseStudent courseStudentToDelete = getCourseStudentEntityForEmail(courseId, email);
         if (courseStudentToDelete != null) {
-            StudentAttributes courseStudentToDeleteAttributes = makeAttributes(courseStudentToDelete);
             deleteDocumentByStudentKey(courseStudentToDelete.getRegistrationKey());
-            deleteEntityDirect(courseStudentToDelete, courseStudentToDeleteAttributes);
+            deleteEntity(Key.create(CourseStudent.class, courseStudentToDelete.getUniqueId()));
         }
     }
 
     /**
-     * Fails silently if no such student. <br>
-     * Preconditions: <br>
-     *  * All parameters are non-null.
-     *
+     * Deletes students using {@link AttributesDeletionQuery}.
      */
+    public void deleteStudents(AttributesDeletionQuery query) {
+        if (query.isCourseIdPresent()) {
+            List<CourseStudent> studentsToDelete = getCourseStudentsForCourseQuery(query.getCourseId()).list();
+            deleteDocument(Const.SearchIndex.STUDENT,
+                    studentsToDelete.stream().map(CourseStudent::getRegistrationKey).toArray(String[]::new));
 
-    public void deleteStudentsForGoogleId(String googleId) {
-        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, googleId);
-        deleteStudentsCascadeDocuments(getCourseStudentEntitiesForGoogleId(googleId));
-    }
-
-    /**
-     * Fails silently if no such student or no such course. <br>
-     * Preconditions: <br>
-     *  * All parameters are non-null.
-     *
-     */
-
-    public void deleteStudentsForCourse(String courseId) {
-        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseId);
-        deleteStudentsCascadeDocuments(getCourseStudentEntitiesForCourse(courseId));
-    }
-
-    public void deleteStudentsForCourses(List<String> courseIds) {
-        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseIds);
-
-        ofy().delete().keys(getCourseStudentsForCoursesQuery(courseIds).keys());
-    }
-
-    /**
-     * Verifies that the student with the specified {@code email} exists in the course {@code courseId}.
-     *
-     * @throws EntityDoesNotExistException if the student specified by courseId and email does not exist,
-     */
-    public void verifyStudentExists(String courseId, String email)
-            throws EntityDoesNotExistException {
-        if (getStudentForEmail(courseId, email) == null) {
-            String error = ERROR_UPDATE_NON_EXISTENT_STUDENT + courseId + "/" + email;
-            throw new EntityDoesNotExistException(error);
+            deleteEntity(studentsToDelete.stream()
+                    .map(s -> Key.create(CourseStudent.class, s.getUniqueId()))
+                    .toArray(Key[]::new));
         }
-    }
-
-    private Query<CourseStudent> getCourseStudentForEmailQuery(String courseId, String email) {
-        return load()
-                .filter("courseId =", courseId)
-                .filter("email =", email);
     }
 
     private CourseStudent getCourseStudentEntityForEmail(String courseId, String email) {
-        return load().id(email + '%' + courseId).now();
+        return load().id(CourseStudent.generateId(email, courseId)).now();
+    }
+
+    private List<CourseStudent> getAllCourseStudentEntitiesForEmail(String email) {
+        return load().filter("email =", email).list();
     }
 
     private CourseStudent getCourseStudentEntityForRegistrationKey(String registrationKey) {
@@ -384,12 +352,8 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
         return load().filter("courseId =", courseId);
     }
 
-    public List<CourseStudent> getCourseStudentEntitiesForCourse(String courseId) {
+    private List<CourseStudent> getCourseStudentEntitiesForCourse(String courseId) {
         return getCourseStudentsForCourseQuery(courseId).list();
-    }
-
-    private Query<CourseStudent> getCourseStudentsForCoursesQuery(List<String> courseIds) {
-        return load().filter("courseId in", courseIds);
     }
 
     private Query<CourseStudent> getCourseStudentsForGoogleIdQuery(String googleId) {
@@ -420,23 +384,12 @@ public class StudentsDb extends EntitiesDb<CourseStudent, StudentAttributes> {
     }
 
     @Override
-    protected CourseStudent getEntity(StudentAttributes studentToGet) {
-        return getCourseStudentEntityForEmail(studentToGet.course, studentToGet.email);
-    }
-
-    @Override
-    protected QueryKeys<CourseStudent> getEntityQueryKeys(StudentAttributes attributes) {
-        return getCourseStudentForEmailQuery(attributes.course, attributes.email).keys();
-    }
-
-    private void deleteStudentsCascadeDocuments(List<CourseStudent> students) {
-        List<StudentAttributes> studentsAttributes = new ArrayList<>();
-        for (CourseStudent student : students) {
-            StudentAttributes studentAttributes = makeAttributes(student);
-            studentsAttributes.add(studentAttributes);
-            deleteDocumentByStudentKey(student.getRegistrationKey());
-        }
-        deleteEntitiesDirect(students, studentsAttributes);
+    protected boolean hasExistingEntities(StudentAttributes entityToCreate) {
+        return !load()
+                .filterKey(Key.create(CourseStudent.class,
+                        CourseStudent.generateId(entityToCreate.getEmail(), entityToCreate.getCourse())))
+                .list()
+                .isEmpty();
     }
 
     @Override

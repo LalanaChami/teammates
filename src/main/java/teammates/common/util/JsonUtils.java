@@ -16,6 +16,10 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 
+import teammates.common.datatransfer.questions.FeedbackQuestionDetails;
+import teammates.common.datatransfer.questions.FeedbackQuestionType;
+import teammates.common.datatransfer.questions.FeedbackResponseDetails;
+
 /**
  * Provides means to handle, manipulate, and convert JSON objects to/from strings.
  */
@@ -34,6 +38,8 @@ public final class JsonUtils {
                 .registerTypeAdapter(Instant.class, new TeammatesInstantAdapter())
                 .registerTypeAdapter(ZoneId.class, new TeammatesZoneIdAdapter())
                 .registerTypeAdapter(Duration.class, new TeammatesDurationMinutesAdapter())
+                .registerTypeAdapter(FeedbackQuestionDetails.class, new TeammatesFeedbackQuestionDetailsAdapter())
+                .registerTypeAdapter(FeedbackResponseDetails.class, new TeammatesFeedbackResponseDetailsAdapter())
                 .setPrettyPrinting()
                 .disableHtmlEscaping()
                 .create();
@@ -124,6 +130,39 @@ public final class JsonUtils {
             synchronized (this) {
                 return Duration.ofMinutes(element.getAsLong());
             }
+        }
+    }
+
+    private static class TeammatesFeedbackResponseDetailsAdapter implements JsonSerializer<FeedbackResponseDetails>,
+            JsonDeserializer<FeedbackResponseDetails> {
+
+        @Override
+        public JsonElement serialize(FeedbackResponseDetails src, Type typeOfSrc, JsonSerializationContext context) {
+            return context.serialize(src, src.questionType.getResponseDetailsClass());
+        }
+
+        @Override
+        public FeedbackResponseDetails deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) {
+            FeedbackQuestionType questionType =
+                    FeedbackQuestionType.valueOf(json.getAsJsonObject().get("questionType").getAsString());
+            return context.deserialize(json, questionType.getResponseDetailsClass());
+        }
+
+    }
+
+    private static class TeammatesFeedbackQuestionDetailsAdapter implements JsonSerializer<FeedbackQuestionDetails>,
+            JsonDeserializer<FeedbackQuestionDetails> {
+
+        @Override
+        public JsonElement serialize(FeedbackQuestionDetails src, Type typeOfSrc, JsonSerializationContext context) {
+            return context.serialize(src, src.getQuestionType().getQuestionDetailsClass());
+        }
+
+        @Override
+        public FeedbackQuestionDetails deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) {
+            FeedbackQuestionType questionType =
+                    FeedbackQuestionType.valueOf(json.getAsJsonObject().get("questionType").getAsString());
+            return context.deserialize(json, questionType.getQuestionDetailsClass());
         }
     }
 }

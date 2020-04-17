@@ -6,14 +6,14 @@ import org.testng.annotations.Test;
 import teammates.common.util.Const;
 import teammates.common.util.StringHelper;
 import teammates.e2e.cases.e2e.BaseE2ETestCase;
-import teammates.e2e.util.BackDoor;
 import teammates.e2e.util.TestProperties;
+import teammates.test.driver.BackDoor;
 import teammates.test.pageobjects.AppPage;
 import teammates.test.pageobjects.InstructorCourseJoinConfirmationPage;
 import teammates.test.pageobjects.InstructorHomePage;
 
 /**
- * SUT: {@link Const.ActionURIs#INSTRUCTOR_COURSE_JOIN}.
+ * SUT: {@link Const.LegacyURIs#INSTRUCTOR_COURSE_JOIN}.
  */
 public class InstructorCourseJoinConfirmationPageUiTest extends BaseE2ETestCase {
 

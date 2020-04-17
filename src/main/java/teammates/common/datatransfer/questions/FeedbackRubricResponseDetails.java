@@ -4,11 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import teammates.common.datatransfer.attributes.FeedbackQuestionAttributes;
 import teammates.common.exception.TeammatesException;
 import teammates.common.util.Const;
 import teammates.common.util.Logger;
-import teammates.common.util.SanitizationHelper;
-import teammates.common.util.StringHelper;
 
 public class FeedbackRubricResponseDetails extends FeedbackResponseDetails {
 
@@ -28,11 +27,9 @@ public class FeedbackRubricResponseDetails extends FeedbackResponseDetails {
     public void extractResponseDetails(FeedbackQuestionType questionType,
                                        FeedbackQuestionDetails questionDetails, String[] answer) {
 
-        /**
-         * Example: a response in the form: "0-1,1-0"
-         * means that for sub-question 0, choice 1 is chosen,
-         * and for sub-question 1, choice 0 is chosen.
-         */
+        // Example: a response in the form: "0-1,1-0"
+        // means that for sub-question 0, choice 1 is chosen,
+        // and for sub-question 1, choice 0 is chosen.
 
         String rawResponses = answer[0];
         FeedbackRubricQuestionDetails fqd = (FeedbackRubricQuestionDetails) questionDetails;
@@ -81,89 +78,36 @@ public class FeedbackRubricResponseDetails extends FeedbackResponseDetails {
     }
 
     @Override
-    public String getAnswerHtmlInstructorView(FeedbackQuestionDetails questionDetails) {
-        FeedbackRubricQuestionDetails fqd = (FeedbackRubricQuestionDetails) questionDetails;
-        StringBuilder html = new StringBuilder(100);
-        for (int i = 0; i < answer.size(); i++) {
-            int chosenIndex = answer.get(i);
-            String chosenChoice = "";
-            if (chosenIndex == -1) {
-                chosenChoice = "<span class=\"color-neutral\"><i>"
-                             + Const.INSTRUCTOR_FEEDBACK_RESULTS_MISSING_RESPONSE
-                             + "</i></span>";
-                html.append(StringHelper.integerToLowerCaseAlphabeticalIndex(i + 1) + ") " + chosenChoice + "<br>");
-            } else {
-                chosenChoice = SanitizationHelper.sanitizeForHtml(fqd.getRubricChoices().get(answer.get(i)));
-                html.append(StringHelper.integerToLowerCaseAlphabeticalIndex(i + 1) + ") " + chosenChoice
-                            + " <span class=\"color-neutral\"><i>(Choice " + (chosenIndex + 1)
-                            + ")</i></span><br>");
-            }
-
-        }
-
-        return html.toString();
-    }
-
-    @Override
-    public String getAnswerHtmlStudentView(FeedbackQuestionDetails questionDetails) {
-        FeedbackRubricQuestionDetails fqd = (FeedbackRubricQuestionDetails) questionDetails;
-        StringBuilder html = new StringBuilder(100);
-
-        html.append("<table class=\"table table-bordered\">");
-
-        StringBuilder tableHeaderHtml = new StringBuilder(100);
-
-        tableHeaderHtml.append(
-                "<thead>"
-                   + "<tr>"
-                        + "<th>Criteria</th>");
-
-        List<String> subQuestions = fqd.getRubricSubQuestions();
-        List<String> rubricChoices = fqd.getRubricChoices();
-
-        for (String rubricChoice : rubricChoices) {
-            tableHeaderHtml.append("<th class=\"text-center\">");
-            tableHeaderHtml.append(rubricChoice);
-            tableHeaderHtml.append("</th>");
-        }
-
-        tableHeaderHtml.append(
-                      "</tr>"
-                + "</thead>");
-
-        StringBuilder tableBodyHtml = new StringBuilder(200);
-
-        tableBodyHtml.append("<tbody>");
-
-        for (int i = 0; i < answer.size(); i++) {
-            int chosenIndex = answer.get(i);
-
-            tableBodyHtml.append(
-                    "<tr>"
-                        + "<td>");
-            tableBodyHtml.append(subQuestions.get(i));
-            tableBodyHtml.append("</td>");
-
-            for (int j = 0; j < rubricChoices.size(); j++) {
-                tableBodyHtml.append("<td class=\"text-center\">");
-
-                if (j == chosenIndex) {
-                    tableBodyHtml.append("<span class=\"glyphicon glyphicon-ok text-success\"></span>");
-                }
-
-                tableBodyHtml.append("</td>");
-            }
-        }
-
-        tableBodyHtml.append("</tbody>");
-        html.append(tableHeaderHtml).append(tableBodyHtml).append("</table>");
-
-        return html.toString();
-    }
-
-    @Override
     public String getAnswerCsv(FeedbackQuestionDetails questionDetails) {
         return answer.toString();
+    }
+
+    @Override
+    public List<String> validateResponseDetails(FeedbackQuestionAttributes correspondingQuestion) {
+        List<String> errors = new ArrayList<>();
+
+        FeedbackRubricQuestionDetails questionDetails =
+                (FeedbackRubricQuestionDetails) correspondingQuestion.getQuestionDetails();
+
+        if (answer.isEmpty()) {
+            errors.add(Const.FeedbackQuestion.RUBRIC_EMPTY_ANSWER);
+        }
+
+        if (answer.size() != questionDetails.getNumOfRubricSubQuestions()) {
+            errors.add(Const.FeedbackQuestion.RUBRIC_INVALID_ANSWER);
+        }
+
+        if (answer.stream().anyMatch(choice ->
+                choice != Const.FeedbackQuestion.RUBRIC_ANSWER_NOT_CHOSEN
+                        && (choice < 0 || choice >= questionDetails.getNumOfRubricChoices()))) {
+            errors.add(Const.FeedbackQuestion.RUBRIC_INVALID_ANSWER);
+        }
+
+        if (answer.stream().allMatch(choice -> choice == Const.FeedbackQuestion.RUBRIC_ANSWER_NOT_CHOSEN)) {
+            errors.add(Const.FeedbackQuestion.RUBRIC_INVALID_ANSWER);
+        }
+
+        return errors;
     }
 
     public int getAnswer(int subQuestionIndex) {
@@ -172,5 +116,9 @@ public class FeedbackRubricResponseDetails extends FeedbackResponseDetails {
 
     public void setAnswer(int subQuestionIndex, int choice) {
         this.answer.set(subQuestionIndex, choice);
+    }
+
+    public void setAnswer(List<Integer> answer) {
+        this.answer = answer;
     }
 }

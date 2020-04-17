@@ -3,6 +3,7 @@ package teammates.test.driver;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -10,7 +11,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.Part;
 
 import com.google.appengine.tools.development.testing.LocalDatastoreServiceTestConfig;
 import com.google.appengine.tools.development.testing.LocalLogServiceTestConfig;
@@ -187,28 +190,51 @@ public class GaeSimulation {
     public teammates.ui.controller.Action getLegacyActionObject(String uri, String... parameters) {
         InvocationContext ic = invokeWebRequest(uri, parameters);
         HttpServletRequest req = ic.getRequest();
-        teammates.ui.controller.Action action = new teammates.ui.controller.ActionFactory().getAction(req);
-        action.setTaskQueuer(new MockTaskQueuer());
-        action.setEmailSender(new MockEmailSender());
-        return action;
+        try {
+            teammates.ui.controller.Action action = new teammates.ui.controller.ActionFactory().getAction(req);
+            action.setTaskQueuer(new MockTaskQueuer());
+            action.setEmailSender(new MockEmailSender());
+            return action;
+        } catch (ActionMappingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
      * Returns an {@link Action} object that matches the parameters given.
      *
-     * @param parameters Parameters that appear in a HttpServletRequest received by the app.
+     * @param uri The request URI
+     * @param method The request method
+     * @param body The request body
+     * @param parts The request parts
+     * @param cookies The request's list of Cookies
+     * @param params Parameters that appear in a HttpServletRequest received by the app
      */
-    public Action getActionObject(String uri, String method, String body, String... parameters) {
+    public Action getActionObject(String uri, String method, String body, Map<String, Part> parts,
+                                  List<Cookie> cookies, String... params) {
         try {
             MockHttpServletRequest req = new MockHttpServletRequest(method, Const.ResourceURIs.URI_PREFIX + uri);
-            for (int i = 0; i < parameters.length; i = i + 2) {
-                req.addParam(parameters[i], parameters[i + 1]);
+            for (int i = 0; i < params.length; i = i + 2) {
+                req.addParam(params[i], params[i + 1]);
             }
             if (body != null) {
                 req.setBody(body);
             }
-            MockHttpServletResponse resp = new MockHttpServletResponse();
-            Action action = new ActionFactory().getAction(req, method, resp);
+            if (parts != null) {
+                parts.forEach((key, part) -> {
+                    try {
+                        req.addPart(key, part);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+            }
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    req.addCookie(cookie);
+                }
+            }
+            Action action = new ActionFactory().getAction(req, method);
             action.setTaskQueuer(new MockTaskQueuer());
             action.setEmailSender(new MockEmailSender());
             return action;

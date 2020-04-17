@@ -19,13 +19,10 @@ public final class CsvChecker {
 
     /**
      * Verifies that the given {@code csvContent} is the same as
-     * the content given in the file at {@code filePathParam}. <br>
-     * @param filePathParam
-     *         If this starts with "/" (e.g., "/expected.html"), the
-     *         folder is assumed to be {@link TestProperties#TEST_CSV_FOLDER}.
+     * the content given in the file at {@code fileName}. <br>
      */
-    public static void verifyCsvContent(String csvContent, String filePathParam) throws IOException {
-        String filePath = (filePathParam.charAt(0) == '/' ? TestProperties.TEST_CSV_FOLDER : "") + filePathParam;
+    public static void verifyCsvContent(String csvContent, String fileName) throws IOException {
+        String filePath = TestProperties.TEST_CSV_FOLDER + fileName;
         String actual = processCsvForComparison(csvContent);
         try {
             String expected = FileHelper.readFile(filePath);
@@ -34,14 +31,14 @@ public final class CsvChecker {
                         "<actual>" + System.lineSeparator() + actual + "</actual>");
             }
         } catch (IOException | AssertionError e) {
-            if (!testAndRunGodMode(filePath, actual)) {
+            if (!updateSnapshot(filePath, actual)) {
                 throw e;
             }
         }
     }
 
-    private static boolean testAndRunGodMode(String filePath, String csvContent) throws IOException {
-        return TestProperties.IS_GODMODE_ENABLED && regenerateCsvFile(filePath, csvContent);
+    private static boolean updateSnapshot(String filePath, String csvContent) throws IOException {
+        return TestProperties.IS_SNAPSHOT_UPDATE && regenerateCsvFile(filePath, csvContent);
     }
 
     private static boolean regenerateCsvFile(String filePath, String csvContent) throws IOException {

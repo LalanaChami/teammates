@@ -7,7 +7,6 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 
-import org.testng.annotations.AfterSuite;
 import org.testng.annotations.Test;
 
 import com.google.appengine.api.log.AppLogLine;
@@ -31,7 +30,6 @@ import teammates.logic.core.FeedbackSessionsLogic;
 import teammates.logic.core.InstructorsLogic;
 import teammates.logic.core.StudentsLogic;
 import teammates.test.driver.EmailChecker;
-import teammates.test.driver.TestProperties;
 
 /**
  * SUT: {@link EmailGenerator}.
@@ -46,19 +44,81 @@ public class EmailGeneratorTest extends BaseLogicTest {
     @Override
     public void prepareTestData() {
         dataBundle = loadDataBundle("/EmailGeneratorTest.json");
+
+        FeedbackSessionAttributes session1InCourse3 = dataBundle.feedbackSessions.get("session1InCourse3");
+        FeedbackSessionAttributes session2InCourse3 = dataBundle.feedbackSessions.get("session2InCourse3");
+        FeedbackSessionAttributes session1InCourse4 = dataBundle.feedbackSessions.get("session1InCourse4");
+        FeedbackSessionAttributes session2InCourse4 = dataBundle.feedbackSessions.get("session2InCourse4");
+        // opened and unpublished.
+        session1InCourse3.setStartTime(TimeHelper.getInstantDaysOffsetFromNow(-20));
+        dataBundle.feedbackSessions.put("session1InCourse3", session1InCourse3);
+
+        // closed and unpublished
+        session2InCourse3.setStartTime(TimeHelper.getInstantDaysOffsetFromNow(-19));
+        session2InCourse3.setEndTime(TimeHelper.getInstantDaysOffsetFromNow(-1));
+        session2InCourse3.resetDeletedTime();
+        dataBundle.feedbackSessions.put("session2InCourse3", session2InCourse3);
+
+        // opened and published.
+        session1InCourse4.setStartTime(TimeHelper.getInstantDaysOffsetFromNow(-19));
+        session1InCourse4.setResultsVisibleFromTime(TimeHelper.getInstantDaysOffsetFromNow(-1));
+        dataBundle.feedbackSessions.put("session1InCourse4", session1InCourse4);
+
+        // closed and published
+        session2InCourse4.setStartTime(TimeHelper.getInstantDaysOffsetFromNow(-18));
+        session2InCourse4.setEndTime(TimeHelper.getInstantDaysOffsetFromNow(-1));
+        session2InCourse4.setResultsVisibleFromTime(TimeHelper.getInstantDaysOffsetFromNow(-1));
+        dataBundle.feedbackSessions.put("session2InCourse4", session2InCourse4);
+
         removeAndRestoreDataBundle(dataBundle);
     }
 
-    /**
-     * Reminder to disable GodMode and re-run the test.
-     */
-    @AfterSuite
-    public static void remindUserToDisableGodModeIfRequired() {
-        if (TestProperties.IS_GODMODE_ENABLED) {
-            print("==========================================================");
-            print("IMPORTANT: Remember to disable GodMode and rerun the test!");
-            print("==========================================================");
-        }
+    @Test
+    public void testGenerateSessionLinksRecoveryEmail() throws IOException {
+
+        ______TS("invalid email address");
+
+        EmailWrapper email = new EmailGenerator().generateSessionLinksRecoveryEmailForStudent(
+                "non-existing-student");
+        String subject = EmailType.SESSION_LINKS_RECOVERY.getSubject();
+
+        verifyEmail(email, "non-existing-student", subject,
+                "/sessionLinksRecoveryNonExistingStudentEmail.html");
+
+        ______TS("no sessions found");
+
+        StudentAttributes student1InCourse1 = dataBundle.students.get("student1InCourse1");
+
+        email = new EmailGenerator().generateSessionLinksRecoveryEmailForStudent(
+                student1InCourse1.getEmail());
+        subject = EmailType.SESSION_LINKS_RECOVERY.getSubject();
+
+        verifyEmail(email, student1InCourse1.email, subject,
+                "/sessionLinksRecoveryNoSessionsFoundEmail.html");
+
+        ______TS("Typical case: found opened or closed but unpublished Sessions");
+
+        StudentAttributes student1InCourse3 = dataBundle.students.get("student1InCourse3");
+
+        email = new EmailGenerator().generateSessionLinksRecoveryEmailForStudent(
+                student1InCourse3.getEmail());
+
+        subject = EmailType.SESSION_LINKS_RECOVERY.getSubject();
+
+        verifyEmail(email, student1InCourse3.email, subject,
+                "/sessionLinksRecoveryOpenedOrClosedButUnpublishedSessions.html");
+
+        ______TS("Typical case: found opened or closed and  published Sessions");
+
+        StudentAttributes student1InCourse4 = dataBundle.students.get("student1InCourse4");
+
+        email = new EmailGenerator().generateSessionLinksRecoveryEmailForStudent(
+                student1InCourse4.getEmail());
+
+        subject = EmailType.SESSION_LINKS_RECOVERY.getSubject();
+
+        verifyEmail(email, student1InCourse4.email, subject,
+                "/sessionLinksRecoveryOpenedOrClosedAndpublishedSessions.html");
     }
 
     @Test
@@ -290,13 +350,14 @@ public class EmailGeneratorTest extends BaseLogicTest {
         String instructorName = "Instr";
         String regkey = "skxxxxxxxxxks";
 
-        @SuppressWarnings("deprecation")
         InstructorAttributes instructor = InstructorAttributes
-                .builder("googleId", "courseId", "Instructor Name", instructorEmail)
-                .withKey(regkey)
+                .builder("courseId", instructorEmail)
+                .withGoogleId("googleId")
+                .withName("Instructor Name")
                 .build();
+        instructor.key = regkey;
 
-        AccountAttributes inviter = AccountAttributes.builder()
+        AccountAttributes inviter = AccountAttributes.builder("otherGoogleId")
                 .withEmail("instructor-joe@gmail.com")
                 .withName("Joe Wilson")
                 .build();
@@ -317,7 +378,9 @@ public class EmailGeneratorTest extends BaseLogicTest {
         ______TS("instructor course join email");
 
         CourseAttributes course = CourseAttributes
-                .builder("course-id", "Course Name", ZoneId.of("UTC"))
+                .builder("course-id")
+                .withName("Course Name")
+                .withTimezone(ZoneId.of("UTC"))
                 .build();
 
         email = new EmailGenerator().generateInstructorCourseJoinEmail(inviter, instructor, course);
@@ -351,9 +414,7 @@ public class EmailGeneratorTest extends BaseLogicTest {
         ______TS("instructor course join email: sanitization required");
 
         AccountAttributes inviter = dataBundle.accounts.get("instructor1OfTestingSanitizationCourse");
-
         CourseAttributes course = coursesLogic.getCourse("idOfTestingSanitizationCourse");
-
         email = new EmailGenerator().generateInstructorCourseJoinEmail(inviter, instructor1, course);
         subject = String.format(EmailType.INSTRUCTOR_COURSE_JOIN.getSubject(), course.getName(), course.getId());
 
@@ -385,13 +446,16 @@ public class EmailGeneratorTest extends BaseLogicTest {
         ______TS("student course join email");
 
         CourseAttributes course = CourseAttributes
-                .builder("idOfTypicalCourse1", "Course Name", ZoneId.of("UTC"))
+                .builder("idOfTypicalCourse1")
+                .withName("Course Name")
+                .withTimezone(ZoneId.of("UTC"))
                 .build();
 
-        StudentAttributes student = StudentAttributes
-                .builder("", "Student Name", "student@email.tmt")
-                .withKey("skxxxxxxxxxks")
-                .build();
+        StudentAttributes student =
+                StudentAttributes.builder("", "student@email.tmt")
+                        .withName("Student Name")
+                        .build();
+        student.key = "skxxxxxxxxxks";
 
         EmailWrapper email = new EmailGenerator().generateStudentCourseJoinEmail(course, student);
         String subject = String.format(EmailType.STUDENT_COURSE_JOIN.getSubject(), course.getName(), course.getId());
@@ -408,7 +472,10 @@ public class EmailGeneratorTest extends BaseLogicTest {
 
         ______TS("student course (without co-owners) join email");
 
-        course = CourseAttributes.builder("course-id", "Course Name", ZoneId.of("UTC")).build();
+        course = CourseAttributes.builder("course-id")
+                .withName("Course Name")
+                .withTimezone(ZoneId.of("UTC"))
+                .build();
 
         email = new EmailGenerator().generateStudentCourseJoinEmail(course, student);
         subject = String.format(EmailType.STUDENT_COURSE_JOIN.getSubject(), course.getName(), course.getId());
@@ -452,7 +519,9 @@ public class EmailGeneratorTest extends BaseLogicTest {
         ______TS("student course register email");
 
         CourseAttributes course = CourseAttributes
-                .builder("idOfTypicalCourse1", "Course Name", ZoneId.of("UTC"))
+                .builder("idOfTypicalCourse1")
+                .withName("Course Name")
+                .withTimezone(ZoneId.of("UTC"))
                 .build();
         String name = "User Name";
         String emailAddress = "user@email.tmt";

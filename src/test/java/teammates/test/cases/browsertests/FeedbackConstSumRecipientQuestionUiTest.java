@@ -8,14 +8,14 @@ import org.testng.annotations.Test;
 
 import teammates.common.datatransfer.questions.FeedbackConstantSumDistributePointsType;
 import teammates.common.util.Const;
-import teammates.e2e.util.BackDoor;
+import teammates.test.driver.BackDoor;
 import teammates.test.pageobjects.InstructorFeedbackEditPage;
 
 /**
- * SUT: {@link Const.WebPageURIs.INSTRUCTOR_SESSION_EDIT_PAGE},
+ * SUT: {@link Const.WebPageURIs#INSTRUCTOR_SESSION_EDIT_PAGE},
  *      specifically for constant sum (recipients) questions.
  */
-public class FeedbackConstSumRecipientQuestionUiTest extends FeedbackQuestionUiTest {
+public class FeedbackConstSumRecipientQuestionUiTest extends BaseFeedbackQuestionUiTest {
 
     private InstructorFeedbackEditPage feedbackEditPage;
 

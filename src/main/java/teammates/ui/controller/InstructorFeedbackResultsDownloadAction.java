@@ -1,12 +1,12 @@
 package teammates.ui.controller;
 
+import teammates.common.datatransfer.SectionDetail;
 import teammates.common.datatransfer.attributes.FeedbackSessionAttributes;
 import teammates.common.datatransfer.attributes.InstructorAttributes;
 import teammates.common.exception.EntityDoesNotExistException;
 import teammates.common.exception.ExceedingRangeException;
 import teammates.common.util.Assumption;
 import teammates.common.util.Const;
-import teammates.common.util.SectionDetail;
 import teammates.common.util.StatusMessage;
 import teammates.common.util.StatusMessageColor;
 
@@ -40,7 +40,7 @@ public class InstructorFeedbackResultsDownloadAction extends Action {
 
         // initialize SectionDetail correctly
         if (section != null && sectionDetailValue != null && !sectionDetailValue.isEmpty()) {
-            Assumption.assertNotNull(SectionDetail.containsSectionDetail(sectionDetailValue));
+            Assumption.assertTrue(SectionDetail.containsSectionDetail(sectionDetailValue));
             sectionDetail = SectionDetail.valueOf(sectionDetailValue);
         }
 

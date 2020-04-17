@@ -1,6 +1,10 @@
 <div class="card card-plain">
+  <div class="close-header" *ngIf="formMode === SessionEditFormMode.ADD">
+    <button type="button" class="close" aria-label="Close" (click)="closeEditFormHandler()">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
   <div class="card-body">
-
     <div class="row" *ngIf="formMode === SessionEditFormMode.ADD">
       <div class="col-6">
         <div class="row align-items-center">
@@ -44,8 +48,8 @@
             Are you sure you want to continue?
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-light" (click)="modal.dismiss()">Cancel</button>
-            <button type="button" class="btn btn-warning" (click)="modal.close()">OK</button>
+            <button type="button" class="btn btn-light" (click)="modal.dismiss()">No, cancel the operation</button>
+            <button type="button" class="btn btn-warning" (click)="modal.close()">Yes</button>
           </div>
         </ng-template>
         <button type="button" class="btn btn-primary" ngbTooltip="Copy this feedback session to other courses" (click)="copyHandler()"><i class="far fa-copy"></i> Copy</button>
@@ -106,7 +110,7 @@
             Instructions
           </div>
           <div class="col-8" ngbTooltip="Enter instructions for this feedback session. e.g. Avoid comments which are too critical. It will be displayed at the top of the page when users respond to the session.">
-            <textarea class="form-control" [ngModel]="model.instructions" (ngModelChange)="triggerModelChange('instructions', $event)" [disabled]="!model.isEditable"></textarea>
+            <tm-rich-text-editor [richText]="model.instructions" (richTextChange)="triggerModelChange('instructions', $event)" [isDisabled]="!model.isEditable"></tm-rich-text-editor>
           </div>
         </div>
         <br/>

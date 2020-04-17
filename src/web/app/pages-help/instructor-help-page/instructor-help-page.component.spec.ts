@@ -1,11 +1,27 @@
 import { async, ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormsModule } from '@angular/forms';
+import { RouterTestingModule } from '@angular/router/testing';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { InstructorHelpPageComponent } from './instructor-help-page.component';
 
-import {
-  InstructorHelpStudentsSectionComponent,
-} from './instructor-help-students-section/instructor-help-students-section.component';
+import { Component, Input } from '@angular/core';
+
+@Component({ selector: 'tm-instructor-help-students-section', template: '' })
+class InstructorHelpStudentsSectionStubComponent {
+  @Input() key: string = '';
+}
+@Component({ selector: 'tm-instructor-help-courses-section', template: '' })
+class InstructorHelpCoursesSectionStubComponent {
+  @Input() key: string = '';
+}
+@Component({ selector: 'tm-instructor-help-sessions-section', template: '' })
+class InstructorHelpSessionsSectionStubComponent {
+  @Input() key: string = '';
+}
+@Component({ selector: 'tm-instructor-help-questions-section', template: '' })
+class InstructorHelpQuestionsSectionStubComponent {
+  @Input() key: string = '';
+}
 
 describe('InstructorHelpPageComponent', () => {
   let component: InstructorHelpPageComponent;
@@ -13,8 +29,10 @@ describe('InstructorHelpPageComponent', () => {
 
   beforeEach(async(() => {
     TestBed.configureTestingModule({
-      declarations: [InstructorHelpPageComponent, InstructorHelpStudentsSectionComponent],
-      imports: [FormsModule, NgbModule],
+      declarations: [InstructorHelpPageComponent, InstructorHelpCoursesSectionStubComponent,
+        InstructorHelpStudentsSectionStubComponent, InstructorHelpSessionsSectionStubComponent,
+        InstructorHelpQuestionsSectionStubComponent],
+      imports: [FormsModule, NgbModule, RouterTestingModule],
     })
     .compileComponents();
   }));

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -13,6 +14,7 @@ import java.util.stream.IntStream;
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import com.google.common.base.CharMatcher;
@@ -39,11 +41,17 @@ public final class StringHelper {
         return s == null || s.isEmpty();
     }
 
+    /**
+     * Generates a string which consists of {@code length} copies of {@code character} without space.
+     */
     public static String generateStringOfLength(int length, char character) {
         Assumption.assertTrue(length >= 0);
         return String.join("", Collections.nCopies(length, String.valueOf(character)));
     }
 
+    /**
+     * Returns true if the given string is empty or consists of only whitespace.
+     */
     public static boolean isWhiteSpace(String string) {
         return string.trim().isEmpty();
     }
@@ -60,15 +68,8 @@ public final class StringHelper {
     }
 
     /**
-     * Checks whether any substring of the input string matches any of the group of given regex expressions.
-     * @param input The string to be matched
-     * @param regexList The regex list used for the matching
+     * Generates a left-indentation of {@code length} units.
      */
-    public static boolean isAnyMatching(String input, List<String> regexList) {
-        return regexList.stream()
-                .anyMatch(r -> isMatching(input.trim().toLowerCase(), r));
-    }
-
     public static String getIndent(int length) {
         return generateStringOfLength(length, ' ');
     }
@@ -122,6 +123,47 @@ public final class StringHelper {
         return frontPart + ".." + endPart;
     }
 
+    /**
+     * Generates the HMAC SHA-1 signature for a supplied string.
+     *
+     * @param data The string to be signed
+     * @return The signature value as a hex-string
+     */
+    public static String generateSignature(String data) {
+        try {
+            SecretKeySpec signingKey =
+                    new SecretKeySpec(hexStringToByteArray(Config.ENCRYPTION_KEY), "HmacSHA1");
+            Mac mac = Mac.getInstance("HmacSHA1");
+            mac.init(signingKey);
+            byte[] value = mac.doFinal(data.getBytes());
+            return byteArrayToHexString(value);
+        } catch (Exception e) {
+            Assumption.fail(TeammatesException.toStringWithStackTrace(e));
+            return null;
+        }
+    }
+
+    /**
+     * Verifies the HMAC SHA-1 signature against a given value.
+     *
+     * @param value The value to be checked
+     * @param signature The signature in hex-string format
+     * @return True if signature matches value
+     */
+    public static boolean isCorrectSignature(String value, String signature) {
+        if (value == null || signature == null) {
+            return false;
+        }
+        return Objects.equals(generateSignature(value), signature);
+    }
+
+    /**
+     * Encrypts the supplied string.
+     *
+     * @param value the plaintext as a string
+     * @return the ciphertext
+     * @throws RuntimeException if the encryption fails for some reason, such as {@code Cipher} initialization failure.
+     */
     public static String encrypt(String value) {
         try {
             SecretKeySpec sks = new SecretKeySpec(hexStringToByteArray(Config.ENCRYPTION_KEY), "AES");
@@ -135,12 +177,12 @@ public final class StringHelper {
         }
     }
 
-    /*
+    /**
      * Decrypts the supplied string.
      *
      * @param message the ciphertext as a hexadecimal string
      * @return the plaintext
-     * @throws InvalidParameterException if the ciphertext is invalid.
+     * @throws InvalidParametersException if the ciphertext is invalid.
      * @throws RuntimeException if the decryption fails for any other reason, such as {@code Cipher} initialization failure.
      */
     public static String decrypt(String message) throws InvalidParametersException {
@@ -179,26 +221,12 @@ public final class StringHelper {
                 .collect(Collectors.joining(delimiter));
     }
 
+    /**
+     * Converts a double value between 0 and 1 to 3dp-string.
+     */
     public static String toDecimalFormatString(double doubleVal) {
         DecimalFormat df = new DecimalFormat("0.###");
         return df.format(doubleVal);
-    }
-
-    @Deprecated
-    public static String toUtcFormat(double hourOffsetTimeZone) {
-        String utcFormatTimeZone = "UTC";
-        if (hourOffsetTimeZone == 0) {
-            return utcFormatTimeZone;
-        }
-
-        if ((int) hourOffsetTimeZone == hourOffsetTimeZone) {
-            return utcFormatTimeZone + String.format(" %+03d:00", (int) hourOffsetTimeZone);
-        }
-
-        return utcFormatTimeZone + String.format(
-                                    " %+03d:%02d",
-                                    (int) hourOffsetTimeZone,
-                                    (int) (Math.abs(hourOffsetTimeZone - (int) hourOffsetTimeZone) * 300 / 5));
     }
 
     /**
@@ -229,7 +257,6 @@ public final class StringHelper {
      *
      * @return split name array{0--> first name, 1--> last name, 2--> processed full name by removing "{}"}
      */
-
     public static String[] splitName(String fullName) {
 
         if (fullName == null) {
@@ -294,6 +321,9 @@ public final class StringHelper {
         return String.valueOf(charArray);
     }
 
+    /**
+     * Converts a byte array to hexadecimal string.
+     */
     public static String byteArrayToHexString(byte[] bytes) {
         StringBuilder sb = new StringBuilder(bytes.length * 2);
         for (byte b : bytes) {
@@ -306,6 +336,9 @@ public final class StringHelper {
         return sb.toString().toUpperCase();
     }
 
+    /**
+     * Converts a hexadecimal string to byte array.
+     */
     public static byte[] hexStringToByteArray(String s) {
         byte[] b = new byte[s.length() / 2];
         IntStream.range(0, b.length)
@@ -373,7 +406,7 @@ public final class StringHelper {
         for (int i = 0; i < chars.length; i++) {
             if (chars[i] == '"') {
                 if (i + 1 < chars.length && chars[i + 1] == '"') {
-                    i++;
+                    i++; // NOPMD loop variable deliberately increased
                 } else {
                     inquote = !inquote;
                     continue;

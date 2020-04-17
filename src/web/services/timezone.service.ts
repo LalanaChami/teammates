@@ -5,6 +5,9 @@ import { map } from 'rxjs/operators';
 import { default as timezone } from '../data/timezone.json';
 import { HttpRequestService } from './http-request.service';
 
+import { ResourceEndpoints } from '../types/api-endpoints';
+import { LocalDateTimeAmbiguityStatus, LocalDateTimeInfo, TimeZones } from '../types/api-output';
+
 /**
  * The date time format used in date time resolution.
  */
@@ -16,41 +19,6 @@ export const LOCAL_DATE_TIME_FORMAT: string = 'YYYY-MM-DD HH:mm';
 export interface TimeResolvingResult {
   timestamp: number;
   message: string;
-}
-
-/**
- * Represents the resolution of local data time.
- */
-interface LocalDateTimeInfo {
-  resolvedTimestamp: number;
-  resolvedStatus: LocalDateTimeAmbiguityStatus;
-
-  earlierInterpretationTimestamp?: number;
-  laterInterpretationTimestamp?: number;
-}
-
-/**
- * Represents the ambiguity status for a local date time at a given time Zone,
- * brought about by Daylight Saving Time (DST).
- */
-enum LocalDateTimeAmbiguityStatus {
-  /**
-   * The local date time can be unambiguously resolved to a single timestamp.
-   * It has only one valid interpretation.
-   */
-  UNAMBIGUOUS = 'UNAMBIGUOUS',
-
-  /**
-   * The local date time falls within the gap period when clocks spring forward at the start of DST.
-   * Strictly speaking, it is non-existent, and needs to be readjusted to be valid.
-   */
-  GAP = 'GAP',
-
-  /**
-   * The local date time falls within the overlap period when clocks fall back at the end of DST.
-   * It has more than one valid interpretation.
-   */
-  OVERLAP = 'OVERLAP',
 }
 
 /**
@@ -100,6 +68,10 @@ export class TimezoneService {
    */
   isBadZone(tz: string): boolean {
     return this.badZones[tz];
+  }
+
+  getTimeZone(): Observable<TimeZones> {
+    return this.httpRequestService.get(ResourceEndpoints.TIMEZONE);
   }
 
   /**

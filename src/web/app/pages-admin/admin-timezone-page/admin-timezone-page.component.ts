@@ -1,11 +1,6 @@
 import { Component, OnInit } from '@angular/core';
-import { HttpRequestService } from '../../../services/http-request.service';
 import { TimezoneService } from '../../../services/timezone.service';
-
-interface TimezoneData {
-  version: string;
-  offsets: { [key: string]: number };
-}
+import { TimeZones } from '../../../types/api-output';
 
 /**
  * Timezone listing page for admin use.
@@ -22,12 +17,12 @@ export class AdminTimezonePageComponent implements OnInit {
   momentTzVersion: string = '';
   momentTimezones: { [key: string]: number } = {};
 
-  constructor(private timezoneService: TimezoneService, private httpRequestService: HttpRequestService) {}
+  constructor(private timezoneService: TimezoneService) {}
 
   ngOnInit(): void {
     this.momentTzVersion = this.timezoneService.getTzVersion();
     this.momentTimezones = this.timezoneService.getTzOffsets();
-    this.httpRequestService.get('/timezone').subscribe((res: TimezoneData) => {
+    this.timezoneService.getTimeZone().subscribe((res: TimeZones) => {
       this.javaTzVersion = res.version;
       this.javaTimezones = res.offsets;
     });

@@ -11,6 +11,8 @@ import teammates.common.exception.EntityNotFoundException;
 import teammates.common.exception.InvalidHttpParameterException;
 import teammates.common.util.Const;
 import teammates.common.util.StringHelper;
+import teammates.ui.webapi.output.FeedbackQuestionsData;
+import teammates.ui.webapi.request.Intent;
 
 /**
  * Get a list of feedback questions for a feedback session.
@@ -38,9 +40,12 @@ public class GetFeedbackQuestionsAction extends BasicFeedbackSubmissionAction {
             gateKeeper.verifyAccessible(logic.getInstructorForGoogleId(courseId, userInfo.getId()), feedbackSession);
             break;
         case INSTRUCTOR_SUBMISSION:
+        case INSTRUCTOR_RESULT:
             InstructorAttributes instructorAttributes = getInstructorOfCourseFromRequest(courseId);
             checkAccessControlForInstructorFeedbackSubmission(instructorAttributes, feedbackSession);
             break;
+        case STUDENT_RESULT:
+            throw new InvalidHttpParameterException("Invalid intent for this action");
         default:
             throw new InvalidHttpParameterException("Unknown intent " + intent);
         }
@@ -57,14 +62,24 @@ public class GetFeedbackQuestionsAction extends BasicFeedbackSubmissionAction {
             switch (intent) {
             case STUDENT_SUBMISSION:
                 questions = logic.getFeedbackQuestionsForStudents(feedbackSessionName, courseId);
+                StudentAttributes studentAttributes = getStudentOfCourseFromRequest(courseId);
+                questions.forEach(question ->
+                        logic.populateFieldsToGenerateInQuestion(question,
+                                studentAttributes.getEmail(), studentAttributes.getTeam()));
                 break;
             case INSTRUCTOR_SUBMISSION:
                 InstructorAttributes instructor = getInstructorOfCourseFromRequest(courseId);
                 questions = logic.getFeedbackQuestionsForInstructors(feedbackSessionName, courseId, instructor.getEmail());
+                questions.forEach(question ->
+                        logic.populateFieldsToGenerateInQuestion(question,
+                                instructor.getEmail(), null));
                 break;
             case FULL_DETAIL:
+            case INSTRUCTOR_RESULT:
                 questions = logic.getFeedbackQuestionsForSession(feedbackSessionName, courseId);
                 break;
+            case STUDENT_RESULT:
+                throw new InvalidHttpParameterException("Invalid intent for this action");
             default:
                 throw new InvalidHttpParameterException("Unknown intent " + intent);
             }
@@ -78,8 +93,7 @@ public class GetFeedbackQuestionsAction extends BasicFeedbackSubmissionAction {
             questions.removeIf(question -> !canInstructorSeeQuestion(question));
         }
 
-        FeedbackQuestionInfo.FeedbackQuestionsResponse response =
-                new FeedbackQuestionInfo.FeedbackQuestionsResponse(questions);
+        FeedbackQuestionsData response = new FeedbackQuestionsData(questions);
         response.normalizeQuestionNumber();
         return new JsonResult(response);
     }

@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { AuthService } from '../../services/auth.service';
+import { MasqueradeModeService } from '../../services/masquerade-mode.service';
 import { AuthInfo } from '../../types/api-output';
 
 /**
@@ -13,7 +14,6 @@ import { AuthInfo } from '../../types/api-output';
 })
 export class InstructorPageComponent implements OnInit {
 
-  logoutUrl: string = '';
   user: string = '';
   institute?: string = '';
   isInstructor: boolean = false;
@@ -45,19 +45,23 @@ export class InstructorPageComponent implements OnInit {
       display: 'Help',
     },
   ];
+  isFetchingAuthDetails: boolean = false;
 
   private backendUrl: string = environment.backendUrl;
 
-  constructor(private route: ActivatedRoute, private authService: AuthService) {}
+  constructor(private route: ActivatedRoute, private authService: AuthService,
+              private masqueradeModeService: MasqueradeModeService) {}
 
   ngOnInit(): void {
+    this.isFetchingAuthDetails = true;
     this.route.queryParams.subscribe((queryParams: any) => {
       this.authService.getAuthUser(queryParams.user).subscribe((res: AuthInfo) => {
-        if (res.logoutUrl) {
-          this.logoutUrl = `${this.backendUrl}${res.logoutUrl}`;
-        }
         if (res.user) {
-          this.user = res.user.id + (res.masquerade ? ' (M)' : '');
+          this.user = res.user.id;
+          if (res.masquerade) {
+            this.user += ' (M)';
+            this.masqueradeModeService.setMasqueradeUser(res.user.id);
+          }
           this.institute = res.institute;
           this.isInstructor = res.user.isInstructor;
           this.isStudent = res.user.isStudent;
@@ -65,6 +69,7 @@ export class InstructorPageComponent implements OnInit {
         } else {
           window.location.href = `${this.backendUrl}${res.instructorLoginUrl}`;
         }
+        this.isFetchingAuthDetails = false;
       }, () => {
         // TODO
       });

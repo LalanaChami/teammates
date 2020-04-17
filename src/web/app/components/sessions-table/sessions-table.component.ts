@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
-import { Course } from '../../course';
-import { FeedbackSessionPublishStatus, FeedbackSessionSubmissionStatus } from '../../feedback-session';
+import { Course, FeedbackSessionPublishStatus, FeedbackSessionSubmissionStatus } from '../../../types/api-output';
+import { SortBy, SortOrder } from '../../../types/sort-properties';
 import { CopySessionModalResult } from '../copy-session-modal/copy-session-modal-model';
 import { CopySessionModalComponent } from '../copy-session-modal/copy-session-modal.component';
 import {
@@ -14,13 +14,10 @@ import {
   ConfirmUnpublishingSessionModalComponent,
 } from './confirm-unpublishing-session-modal/confirm-unpublishing-session-modal.component';
 import {
-  SendRemindersToStudentModalComponent,
-} from './send-reminders-to-student-modal/send-reminders-to-student-modal.component';
-import {
   CopySessionResult,
   SessionsTableColumn,
   SessionsTableHeaderColorScheme,
-  SessionsTableRowModel, SortBy, SortOrder,
+  SessionsTableRowModel,
 } from './sessions-table-model';
 
 /**
@@ -89,6 +86,12 @@ export class SessionsTableComponent implements OnInit {
   @Output()
   sendRemindersToStudentsEvent: EventEmitter<number> = new EventEmitter();
 
+  @Output()
+  resendResultsLinkToStudentsEvent: EventEmitter<number> = new EventEmitter();
+
+  @Output()
+  downloadSessionResultsEvent: EventEmitter<number> = new EventEmitter();
+
   constructor(private modalService: NgbModal) { }
 
   /**
@@ -152,16 +155,24 @@ export class SessionsTableComponent implements OnInit {
   }
 
   /**
+   * Resend links to students to view results.
+   */
+  remindResultsLinkToStudent(rowIndex: number): void {
+    this.resendResultsLinkToStudentsEvent.emit(rowIndex);
+  }
+
+  /**
    * Sends e-mails to remind students who have not submitted their feedback.
    */
   sendRemindersToStudents(rowIndex: number): void {
-    const modalRef: NgbModalRef = this.modalService.open(SendRemindersToStudentModalComponent);
-    const model: SessionsTableRowModel = this.sessionsTableRowModels[rowIndex];
-    modalRef.componentInstance.feedbackSessionName = model.feedbackSession.feedbackSessionName;
+    this.sendRemindersToStudentsEvent.emit(rowIndex);
+  }
 
-    modalRef.result.then(() => {
-      this.sendRemindersToStudentsEvent.emit(rowIndex);
-    }, () => {});
+  /**
+   * Triggers the download of session results as a CSV file.
+   */
+  downloadSessionResults(rowIndex: number): void {
+    this.downloadSessionResultsEvent.emit(rowIndex);
   }
 
   ngOnInit(): void {

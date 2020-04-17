@@ -2,15 +2,12 @@ package teammates.storage.api;
 
 import static com.googlecode.objectify.ObjectifyService.ofy;
 
-import java.time.DateTimeException;
-import java.time.ZoneId;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import com.googlecode.objectify.Key;
 import com.googlecode.objectify.cmd.LoadType;
-import com.googlecode.objectify.cmd.QueryKeys;
 
 import teammates.common.datatransfer.attributes.CourseAttributes;
 import teammates.common.exception.EntityDoesNotExistException;
@@ -27,30 +24,8 @@ import teammates.storage.entity.Course;
  */
 public class CoursesDb extends EntitiesDb<Course, CourseAttributes> {
 
-    /*
-     * Explanation: Based on our policies for the storage component, this class does not handle cascading.
-     * It treats invalid values as an exception.
-     */
-
-    public static final String ERROR_UPDATE_NON_EXISTENT_COURSE = "Trying to update a Course that doesn't exist: ";
-
-    public void createCourses(Collection<CourseAttributes> coursesToAdd) throws InvalidParametersException {
-        List<CourseAttributes> coursesToUpdate = createEntities(coursesToAdd);
-        for (CourseAttributes course : coursesToUpdate) {
-            try {
-                updateCourse(course);
-            } catch (EntityDoesNotExistException e) {
-                // This situation is not tested as replicating such a situation is
-                // difficult during testing
-                Assumption.fail("Entity found be already existing and not existing simultaneously");
-            }
-        }
-    }
-
     /**
-     * Preconditions: <br>
-     * * All parameters are non-null.
-     * @return Null if not found.
+     * Gets a course.
      */
     public CourseAttributes getCourse(String courseId) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseId);
@@ -58,56 +33,98 @@ public class CoursesDb extends EntitiesDb<Course, CourseAttributes> {
         return makeAttributesOrNull(getCourseEntity(courseId));
     }
 
+    /**
+     * Gets a list of courses.
+     */
     public List<CourseAttributes> getCourses(List<String> courseIds) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseIds);
+        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseIds.toArray());
 
         return makeAttributes(getCourseEntities(courseIds));
     }
 
     /**
-     * Updates the course.<br>
-     * Updates only name, deletion date and course archive status.<br>
-     * Preconditions: <br>
-     * * {@code courseToUpdate} is non-null.<br>
+     * Updates a course by {@link CourseAttributes.UpdateOptions}.
+     *
+     * @return updated course
+     * @throws InvalidParametersException if attributes to update are not valid
+     * @throws EntityDoesNotExistException if the course cannot be found
      */
-    public void updateCourse(CourseAttributes courseToUpdate) throws InvalidParametersException,
-                                                                     EntityDoesNotExistException {
-        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseToUpdate);
+    public CourseAttributes updateCourse(CourseAttributes.UpdateOptions updateOptions)
+            throws InvalidParametersException, EntityDoesNotExistException {
+        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, updateOptions);
 
-        courseToUpdate.sanitizeForSaving();
+        Course course = getCourseEntity(updateOptions.getCourseId());
 
-        if (!courseToUpdate.isValid()) {
-            throw new InvalidParametersException(courseToUpdate.getInvalidityInfo());
+        if (course == null) {
+            throw new EntityDoesNotExistException(ERROR_UPDATE_NON_EXISTENT);
         }
 
-        Course courseEntityToUpdate = getCourseEntity(courseToUpdate.getId());
+        CourseAttributes newAttributes = makeAttributes(course);
+        newAttributes.update(updateOptions);
 
-        if (courseEntityToUpdate == null) {
-            throw new EntityDoesNotExistException(ERROR_UPDATE_NON_EXISTENT_COURSE);
+        newAttributes.sanitizeForSaving();
+        if (!newAttributes.isValid()) {
+            throw new InvalidParametersException(newAttributes.getInvalidityInfo());
         }
 
-        courseEntityToUpdate.setName(courseToUpdate.getName());
-        courseEntityToUpdate.setDeletedAt(courseToUpdate.deletedAt);
-        courseEntityToUpdate.setTimeZone(courseToUpdate.getTimeZone().getId());
+        // update only if change
+        boolean hasSameAttributes =
+                this.<String>hasSameValue(course.getName(), newAttributes.getName())
+                && this.<String>hasSameValue(course.getTimeZone(), newAttributes.getTimeZone().getId());
+        if (hasSameAttributes) {
+            log.info(String.format(OPTIMIZED_SAVING_POLICY_APPLIED, Course.class.getSimpleName(), updateOptions));
+            return newAttributes;
+        }
 
-        saveEntity(courseEntityToUpdate, courseToUpdate);
+        course.setName(newAttributes.getName());
+        course.setTimeZone(newAttributes.getTimeZone().getId());
+
+        saveEntity(course);
+
+        return makeAttributes(course);
     }
 
     /**
-     * Permanently deletes the course from the Datastore.
-     *
-     * <p>Note: This is a non-cascade delete.<br>
-     *   <br> Fails silently if there is no such object.
-     * <br> Preconditions:
-     * <br> * {@code courseId} is not null.
+     * Deletes a course.
      */
     public void deleteCourse(String courseId) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseId);
 
-        // only the courseId is important here, everything else are placeholders
-        deleteEntity(CourseAttributes
-                .builder(courseId, "Non-existent course", Const.DEFAULT_TIME_ZONE)
-                .build());
+        deleteEntity(Key.create(Course.class, courseId));
+    }
+
+    /**
+     * Soft-deletes a course by its given corresponding ID.
+     * @return Soft-deletion time of the course.
+     */
+    public Instant softDeleteCourse(String courseId) throws EntityDoesNotExistException {
+        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseId);
+        Course courseEntity = getCourseEntity(courseId);
+
+        if (courseEntity == null) {
+            throw new EntityDoesNotExistException(ERROR_UPDATE_NON_EXISTENT);
+        }
+
+        courseEntity.setDeletedAt(Instant.now());
+        saveEntity(courseEntity);
+
+        return courseEntity.getDeletedAt();
+    }
+
+    /**
+     * Restores a soft-deleted course by its given corresponding ID.
+     */
+    public void restoreDeletedCourse(String courseId) throws EntityDoesNotExistException {
+        Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, courseId);
+        Course courseEntity = getCourseEntity(courseId);
+
+        if (courseEntity == null) {
+            throw new EntityDoesNotExistException(ERROR_UPDATE_NON_EXISTENT);
+        }
+
+        courseEntity.setDeletedAt(null);
+        saveEntity(courseEntity);
     }
 
     @Override
@@ -116,14 +133,9 @@ public class CoursesDb extends EntitiesDb<Course, CourseAttributes> {
     }
 
     @Override
-    protected Course getEntity(CourseAttributes attributes) {
-        return getCourseEntity(attributes.getId());
-    }
-
-    @Override
-    protected QueryKeys<Course> getEntityQueryKeys(CourseAttributes attributes) {
-        Key<Course> keyToFind = Key.create(Course.class, attributes.getId());
-        return load().filterKey(keyToFind).keys();
+    protected boolean hasExistingEntities(CourseAttributes entityToCreate) {
+        Key<Course> keyToFind = Key.create(Course.class, entityToCreate.getId());
+        return !load().filterKey(keyToFind).keys().list().isEmpty();
     }
 
     private Course getCourseEntity(String courseId) {
@@ -143,17 +155,6 @@ public class CoursesDb extends EntitiesDb<Course, CourseAttributes> {
     protected CourseAttributes makeAttributes(Course entity) {
         Assumption.assertNotNull(Const.StatusCodes.DBLEVEL_NULL_INPUT, entity);
 
-        ZoneId courseTimeZone;
-        try {
-            courseTimeZone = ZoneId.of(entity.getTimeZone());
-        } catch (DateTimeException e) {
-            log.severe("Timezone '" + entity.getTimeZone() + "' of course '" + entity.getUniqueId()
-                    + "' is not supported. UTC will be used instead.");
-            courseTimeZone = Const.DEFAULT_TIME_ZONE;
-        }
-        return CourseAttributes.builder(entity.getUniqueId(), entity.getName(), courseTimeZone)
-                .withCreatedAt(entity.getCreatedAt())
-                .withDeletedAt(entity.getDeletedAt())
-                .build();
+        return CourseAttributes.valueOf(entity);
     }
 }

@@ -7,12 +7,20 @@ import java.nio.file.Paths;
 import java.util.Properties;
 
 import teammates.common.util.Url;
-import teammates.test.driver.StringHelperExtension;
 
 /**
  * Represents properties in test.properties file.
  */
 public final class TestProperties {
+
+    /** The directory where the L&P test data files are stored. */
+    public static final String LNP_TEST_DATA_FOLDER = "src/e2e/lnp/data";
+
+    /** The directory where the L&P test configuration files are stored. */
+    public static final String LNP_TEST_CONFIG_FOLDER = "src/e2e/lnp/tests";
+
+    /** The directory where the L&P test results are stored. */
+    public static final String LNP_TEST_RESULTS_FOLDER = "src/e2e/lnp/results";
 
     /** The directory where HTML files for testing pages are stored. */
     public static final String TEST_PAGES_FOLDER = "src/e2e/resources/pages";
@@ -84,11 +92,14 @@ public final class TestProperties {
     /** The value of "test.timeout" in test.properties file. */
     public static final int TEST_TIMEOUT;
 
-    /** The value of "test.godmode.enabled" in test.properties file. */
-    public static final boolean IS_GODMODE_ENABLED;
-
     /** The value of "test.persistence.timeout" in test.properties file. */
     public static final int PERSISTENCE_RETRY_PERIOD_IN_S;
+
+    /** The value of "test.jmeter.home" in test.properties file. */
+    public static final String JMETER_HOME;
+
+    /** The value of "test.jmeter.properties" in test.properties file. */
+    public static final String JMETER_PROPERTIES_PATH;
 
     /** The directory where credentials used in Gmail API are stored. */
     static final String TEST_GMAIL_API_FOLDER = "src/e2e/resources/gmail-api";
@@ -108,46 +119,20 @@ public final class TestProperties {
             }
             TEAMMATES_VERSION = buildProperties.getProperty("app.version");
 
-            IS_GODMODE_ENABLED = Boolean.parseBoolean(prop.getProperty("test.godmode.enabled", "false"));
+            TEST_ADMIN_ACCOUNT = prop.getProperty("test.admin.account");
+            TEST_ADMIN_PASSWORD = prop.getProperty("test.admin.password");
 
-            if (isDevServer() && (isCiEnvironment() || IS_GODMODE_ENABLED)) {
-                // For CI and GodMode, we do not read the account details from the test properties file, but generate
-                // random account names. This is for detection and prevention of hard-coded account names in test files.
-                // The password values are not required for login to the dev server and hence, set to null.
+            TEST_INSTRUCTOR_ACCOUNT = prop.getProperty("test.instructor.account");
+            TEST_INSTRUCTOR_PASSWORD = prop.getProperty("test.instructor.password");
 
-                String dotSalt = "." + StringHelperExtension.generateSaltOfLength(8);
+            TEST_STUDENT1_ACCOUNT = prop.getProperty("test.student1.account");
+            TEST_STUDENT1_PASSWORD = prop.getProperty("test.student1.password");
 
-                TEST_ADMIN_ACCOUNT = "yourGoogleId" + dotSalt;
-                TEST_ADMIN_PASSWORD = null;
+            TEST_STUDENT2_ACCOUNT = prop.getProperty("test.student2.account");
+            TEST_STUDENT2_PASSWORD = prop.getProperty("test.student2.password");
 
-                TEST_INSTRUCTOR_ACCOUNT = "teammates.coord" + dotSalt;
-                TEST_INSTRUCTOR_PASSWORD = null;
-
-                TEST_STUDENT1_ACCOUNT = "alice.tmms" + dotSalt;
-                TEST_STUDENT1_PASSWORD = null;
-
-                TEST_STUDENT2_ACCOUNT = "charlie.tmms" + dotSalt;
-                TEST_STUDENT2_PASSWORD = null;
-
-                TEST_UNREG_ACCOUNT = "teammates.unreg" + dotSalt;
-                TEST_UNREG_PASSWORD = null;
-
-            } else {
-                TEST_ADMIN_ACCOUNT = prop.getProperty("test.admin.account");
-                TEST_ADMIN_PASSWORD = prop.getProperty("test.admin.password");
-
-                TEST_INSTRUCTOR_ACCOUNT = prop.getProperty("test.instructor.account");
-                TEST_INSTRUCTOR_PASSWORD = prop.getProperty("test.instructor.password");
-
-                TEST_STUDENT1_ACCOUNT = prop.getProperty("test.student1.account");
-                TEST_STUDENT1_PASSWORD = prop.getProperty("test.student1.password");
-
-                TEST_STUDENT2_ACCOUNT = prop.getProperty("test.student2.account");
-                TEST_STUDENT2_PASSWORD = prop.getProperty("test.student2.password");
-
-                TEST_UNREG_ACCOUNT = prop.getProperty("test.unreg.account");
-                TEST_UNREG_PASSWORD = prop.getProperty("test.unreg.password");
-            }
+            TEST_UNREG_ACCOUNT = prop.getProperty("test.unreg.account");
+            TEST_UNREG_PASSWORD = prop.getProperty("test.unreg.password");
 
             CSRF_KEY = prop.getProperty("test.csrf.key");
             BACKDOOR_KEY = prop.getProperty("test.backdoor.key");
@@ -160,6 +145,9 @@ public final class TestProperties {
             TEST_TIMEOUT = Integer.parseInt(prop.getProperty("test.timeout"));
             PERSISTENCE_RETRY_PERIOD_IN_S = Integer.parseInt(prop.getProperty("test.persistence.timeout"));
 
+            JMETER_HOME = prop.getProperty("test.jmeter.home").toLowerCase();
+            JMETER_PROPERTIES_PATH = prop.getProperty("test.jmeter.properties", "").toLowerCase();
+
         } catch (IOException | NumberFormatException e) {
             throw new RuntimeException(e);
         }
@@ -169,32 +157,8 @@ public final class TestProperties {
         // access static fields directly
     }
 
-    public static boolean isTravis() {
-        return System.getenv("TRAVIS") != null;
-    }
-
-    public static boolean isAppveyor() {
-        return System.getenv("APPVEYOR") != null;
-    }
-
-    public static boolean isCiEnvironment() {
-        return isTravis() || isAppveyor();
-    }
-
     public static boolean isDevServer() {
         return TEAMMATES_URL.matches("^https?://localhost:[0-9]+(/.*)?");
-    }
-
-    /**
-     * Verifies that the test properties specified in test.properties file allows for HTML
-     * regeneration via GodMode to work smoothly (i.e all test HTML files are correctly regenerated,
-     * strings that need to be replaced with placeholders are correctly replaced, and
-     * strings that are not supposed to be replaced with placeholders are not replaced).
-     */
-    public static void verifyReadyForGodMode() {
-        if (!isDevServer()) {
-            throw new RuntimeException("GodMode regeneration works only in dev server.");
-        }
     }
 
 }

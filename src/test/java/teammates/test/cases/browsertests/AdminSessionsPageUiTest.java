@@ -14,7 +14,7 @@ import teammates.e2e.cases.e2e.BaseE2ETestCase;
 import teammates.test.pageobjects.AdminSessionsPage;
 
 /**
- * SUT: {@link Const.ActionURIs#ADMIN_SESSIONS_PAGE}.
+ * SUT: {@link Const.WebPageURIs#ADMIN_SESSIONS_PAGE}.
  */
 public class AdminSessionsPageUiTest extends BaseE2ETestCase {
     private AdminSessionsPage sessionsPage;
@@ -39,7 +39,7 @@ public class AdminSessionsPageUiTest extends BaseE2ETestCase {
         ______TS("content: typical page");
 
         AppUrl sessionsUrl = createUrl(Const.WebPageURIs.ADMIN_SESSIONS_PAGE);
-        sessionsPage = loginAdminToPage(sessionsUrl, AdminSessionsPage.class);
+        sessionsPage = loginAdminToPageOld(sessionsUrl, AdminSessionsPage.class);
         By timeFramePanel = By.id("timeFramePanel");
         sessionsPage.waitForElementToDisappear(timeFramePanel);
         assertTrue(isSessionDataDisplayCorrect());

@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
-import { HttpRequestService } from '../../../services/http-request.service';
+import { ErrorReportService } from '../../../services/error-report.service';
+import { ErrorReportRequest } from '../../../types/api-request';
 import { ErrorMessageOutput } from '../../error-message-output';
 
 /**
@@ -19,7 +20,7 @@ export class ErrorReportComponent implements OnInit {
   sendButtonEnabled: boolean = true;
   errorReportSubmitted: boolean = false;
 
-  constructor(private httpRequestService: HttpRequestService) {}
+  constructor(private errorReportService: ErrorReportService) {}
 
   ngOnInit(): void {
   }
@@ -28,12 +29,14 @@ export class ErrorReportComponent implements OnInit {
    * Sends the error report.
    */
   sendErrorReport(): void {
-    const paramMap: { [key: string]: string } = {
-      errorfeedbackemailsubject: this.subject,
-      errorfeedbackrequestid: this.requestId,
+    const request: ErrorReportRequest = {
+      requestId: this.requestId,
+      subject: this.subject,
+      content: this.content,
     };
+
     this.sendButtonEnabled = false;
-    this.httpRequestService.post('/errorreport', paramMap, this.content).subscribe(() => {
+    this.errorReportService.sendErrorReport({ request }).subscribe(() => {
       this.errorReportSubmitted = true;
     }, (res: ErrorMessageOutput) => {
       this.sendButtonEnabled = true;

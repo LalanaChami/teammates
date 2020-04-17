@@ -5,6 +5,8 @@ package teammates.common.util;
  */
 public enum EmailType {
 
+    // CHECKSTYLE.OFF:JavadocVariable enum names are self-documenting
+
     FEEDBACK_OPENING("TEAMMATES: Feedback session now open [Course: %s][Feedback Session: %s]"),
     FEEDBACK_SESSION_REMINDER("TEAMMATES: Feedback session reminder [Course: %s][Feedback Session: %s]"),
     FEEDBACK_SUBMISSION_CONFIRMATION(
@@ -20,7 +22,8 @@ public enum EmailType {
     INSTRUCTOR_COURSE_JOIN("TEAMMATES: Invitation to join course as an instructor [%s][Course ID: %s]"),
     INSTRUCTOR_COURSE_REJOIN_AFTER_GOOGLE_ID_RESET("TEAMMATES: Your account has been reset for course [%s][Course ID: %s]"),
     USER_COURSE_REGISTER("TEAMMATES: Registered for Course [%s][Course ID: %s]"),
-    SEVERE_LOGS_COMPILATION("TEAMMATES (%s): Severe Error Logs Compilation");
+    SEVERE_LOGS_COMPILATION("TEAMMATES (%s): Severe Error Logs Compilation"),
+    SESSION_LINKS_RECOVERY("TEAMMATES: Access links for recent feedback sessions");
 
     private final String subject;
 
