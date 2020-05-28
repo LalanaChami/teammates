@@ -53,6 +53,14 @@ public class AdminSearchPageE2ETest extends BaseE2ETestCase {
         student.googleId = null;
         verifyStudentRowContent(student, studentAccount);
 
+        ______TS("Typical case: Regenerate all links for a course student");
+        searchPage.clickExpandStudentLinks();
+        WebElement studentRow = searchPage.getStudentRow(student);
+        String originalJoinLink = searchPage.getStudentJoinLink(studentRow);
+
+        searchPage.regenerateLinksForStudent(student);
+        verifyRegenerateStudentCourseLinks(studentRow, originalJoinLink);
+
         ______TS("Typical case: Search for instructor email");
         searchPage.clearSearchBox();
         searchContent = instructor.getEmail();
@@ -64,6 +72,7 @@ public class AdminSearchPageE2ETest extends BaseE2ETestCase {
         ______TS("Typical case: Reset instructor google id");
         searchPage.resetInstructorGoogleId(instructor);
         instructor.googleId = null;
+        instructorAccount.institute = null;
         verifyInstructorRowContent(instructor, instructorAccount);
 
         ______TS("Typical case: Search common course id");
@@ -177,17 +186,17 @@ public class AdminSearchPageE2ETest extends BaseE2ETestCase {
     }
 
     private String getExpectedInstructorHomePageLink(InstructorAttributes instructor) {
-        return instructor.isRegistered() ? createUrl(Const.WebPageURIs.INSTRUCTOR_HOME_PAGE)
-                .withUserId(instructor.googleId)
-                .toAbsoluteString()
-                : "";
+        String googleId = instructor.isRegistered() ? instructor.googleId : "";
+        return createUrl(Const.WebPageURIs.INSTRUCTOR_HOME_PAGE)
+                .withUserId(googleId)
+                .toAbsoluteString();
     }
 
     private String getExpectedInstructorManageAccountLink(InstructorAttributes instructor) {
-        return instructor.isRegistered() ? createUrl(Const.WebPageURIs.ADMIN_ACCOUNTS_PAGE)
-                .withInstructorId(instructor.googleId)
-                .toAbsoluteString()
-                : "";
+        String googleId = instructor.isRegistered() ? instructor.googleId : "";
+        return createUrl(Const.WebPageURIs.ADMIN_ACCOUNTS_PAGE)
+                .withInstructorId(googleId)
+                .toAbsoluteString();
     }
 
     private void verifyInstructorExpandedLinks(InstructorAttributes instructor) {
@@ -225,6 +234,14 @@ public class AdminSearchPageE2ETest extends BaseE2ETestCase {
         numExpandedInstructorRows = searchPage.getNumExpandedRows(instructorRow);
         assertEquals(numExpandedStudentRows, 0);
         assertNotEquals(numExpandedInstructorRows, 0);
+    }
+
+    private void verifyRegenerateStudentCourseLinks(WebElement studentRow, String originalJoinLink) {
+        searchPage.verifyStatusMessage("Student's links for this course have been successfully regenerated,"
+                + " and the email has been sent.");
+
+        String regeneratedJoinLink = searchPage.getStudentJoinLink(studentRow);
+        assertNotEquals(regeneratedJoinLink, originalJoinLink);
     }
 
 }

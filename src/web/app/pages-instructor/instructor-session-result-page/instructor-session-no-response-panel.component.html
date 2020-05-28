@@ -1,8 +1,13 @@
-<div class="card-header bg-info text-dark course-tab-header" (click)="expandTab()">
+<div class="card-header bg-info text-dark course-tab-header" (click)="toggleTab()">
   Participants who have not responded to any question
   <div class="float-right">
     <i class="fas fa-chevron-down" *ngIf="!isTabExpanded"></i>
     <i class="fas fa-chevron-up" *ngIf="isTabExpanded"></i>
+  </div>
+  <div class="float-right" style='padding-right:15px; margin:-5px;'>
+      <button class="btn btn-light btn-sm button" type="button"(click)="openSendReminderModal($event)">
+          Remind All
+      </button>
   </div>
 </div>
 <div class="card-body" *ngIf="isTabExpanded">

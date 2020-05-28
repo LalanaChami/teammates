@@ -8,6 +8,7 @@ import java.util.Set;
 import teammates.common.datatransfer.CourseDetailsBundle;
 import teammates.common.datatransfer.CourseSummaryBundle;
 import teammates.common.datatransfer.DataBundle;
+import teammates.common.datatransfer.FeedbackParticipantType;
 import teammates.common.datatransfer.FeedbackResponseCommentSearchResultBundle;
 import teammates.common.datatransfer.FeedbackSessionDetailsBundle;
 import teammates.common.datatransfer.FeedbackSessionQuestionsBundle;
@@ -33,6 +34,7 @@ import teammates.common.exception.EntityAlreadyExistsException;
 import teammates.common.exception.EntityDoesNotExistException;
 import teammates.common.exception.ExceedingRangeException;
 import teammates.common.exception.InvalidParametersException;
+import teammates.common.exception.RegenerateStudentException;
 import teammates.common.util.Assumption;
 import teammates.logic.core.AccountsLogic;
 import teammates.logic.core.CoursesLogic;
@@ -848,6 +850,23 @@ public class Logic {
         Assumption.assertNotNull(courseId);
 
         studentsLogic.resetStudentGoogleId(originalEmail, courseId);
+    }
+
+    /**
+     * Regenerates the registration key for the student with email address {@code email} in course {@code courseId}.
+     *
+     * @return the student attributes with the new registration key.
+     * @throws RegenerateStudentException if the newly generated course student has the same registration key as the
+     *          original one.
+     * @throws EntityDoesNotExistException if the student does not exist.
+     */
+    public StudentAttributes regenerateStudentRegistrationKey(String courseId, String email)
+            throws EntityDoesNotExistException, RegenerateStudentException {
+
+        Assumption.assertNotNull(courseId);
+        Assumption.assertNotNull(email);
+
+        return studentsLogic.regenerateStudentRegistrationKey(courseId, email);
     }
 
     /**
@@ -2030,6 +2049,12 @@ public class Logic {
      */
     public void putDocuments(DataBundle dataBundle) {
         dataBundleLogic.putDocuments(dataBundle);
+    }
+
+    public int getNumOfGeneratedChoicesForParticipantType(String courseId, FeedbackParticipantType generateOptionsFor) {
+        Assumption.assertNotNull(courseId);
+        Assumption.assertNotNull(generateOptionsFor);
+        return feedbackQuestionsLogic.getNumOfGeneratedChoicesForParticipantType(courseId, generateOptionsFor);
     }
 
 }

@@ -742,7 +742,6 @@ public final class Const {
         public static final String ERROR_REPORT = "/errorreport";
         public static final String AUTH = "/auth";
         public static final String ACCOUNT = "/account";
-        public static final String ACCOUNTS_SEARCH = "/accounts/search";
         public static final String ACCOUNT_RESET = "/account/reset";
         public static final String ACCOUNT_DOWNGRADE = "/account/downgrade";
         public static final String RESPONSE_COMMENT = "/responsecomment";
@@ -785,10 +784,9 @@ public final class Const {
 
         public static final String STUDENT_PROFILE_PICTURE = "/student/profilePic";
         public static final String STUDENT_PROFILE = "/student/profile";
+        public static final String STUDENT_COURSE_LINKS_REGENERATION = "/student/courselinks/regeneration";
         public static final String STUDENTS_CSV = "/students/csv";
         public static final String STUDENTS_AND_FEEDBACK_SESSION_DATA_SEARCH = "/studentsAndSessionData/search";
-
-        public static final String COURSE_ENROLL_STUDENTS = "/course/enroll/students";
     }
 
     @Deprecated

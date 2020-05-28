@@ -42,7 +42,7 @@ describe('StudentService', () => {
   });
 
   it('should execute PUT when updating students in a course', () => {
-    const paramMap: { [key: string]: string } = {
+    const paramMap: Record<string, string> = {
       courseid: 'CS3281',
       studentemail: 'johndoe@gmail.com',
     };
@@ -58,7 +58,7 @@ describe('StudentService', () => {
   });
 
   it('should execute DELETE when deleting all students in a course', () => {
-    const paramMap: { [key: string]: string } = {
+    const paramMap: Record<string, string> = {
       courseid: 'CS3281',
     };
 
@@ -70,8 +70,20 @@ describe('StudentService', () => {
         .toHaveBeenCalledWith(ResourceEndpoints.STUDENTS, paramMap);
   });
 
+  it('should execute POST when regenerating key of a student in a course', () => {
+    const paramMap: Record<string, string> = {
+      courseid: 'CS3281',
+      studentemail: 'johndoe@gmail.com',
+    };
+
+    service.regenerateStudentCourseLinks(paramMap.courseid, paramMap.studentemail);
+
+    expect(spyHttpRequestService.post)
+        .toHaveBeenCalledWith(ResourceEndpoints.STUDENT_COURSE_LINKS_REGENERATION, paramMap);
+  });
+
   it('should execute GET when loading students in a course as CSV', () => {
-    const paramMap: { [key: string]: string } = {
+    const paramMap: Record<string, string> = {
       courseid: 'CS3281',
     };
 

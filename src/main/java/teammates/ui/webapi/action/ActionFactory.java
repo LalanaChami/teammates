@@ -38,7 +38,6 @@ public class ActionFactory {
         map(ResourceURIs.TIMEZONE, GET, GetTimeZonesAction.class);
         map(ResourceURIs.NATIONALITIES, GET, GetNationalitiesAction.class);
         map(ResourceURIs.AUTH, GET, GetAuthInfoAction.class);
-        map(ResourceURIs.ACCOUNTS_SEARCH, GET, SearchAccountsAction.class);
         map(ResourceURIs.ACCOUNT, GET, GetAccountAction.class);
         map(ResourceURIs.ACCOUNT, POST, CreateAccountAction.class);
         map(ResourceURIs.ACCOUNT, DELETE, DeleteAccountAction.class);
@@ -91,6 +90,7 @@ public class ActionFactory {
         map(ResourceURIs.SESSIONS, GET, GetFeedbackSessionsAction.class);
         map(ResourceURIs.BIN_SESSION, PUT, BinFeedbackSessionAction.class);
         map(ResourceURIs.BIN_SESSION, DELETE, RestoreFeedbackSessionAction.class);
+        map(ResourceURIs.STUDENT_COURSE_LINKS_REGENERATION, POST, RegenerateStudentCourseLinksAction.class);
         map(ResourceURIs.QUESTIONS, GET, GetFeedbackQuestionsAction.class);
         map(ResourceURIs.QUESTION, POST, CreateFeedbackQuestionAction.class);
         map(ResourceURIs.QUESTION, PUT, UpdateFeedbackQuestionAction.class);
@@ -107,7 +107,6 @@ public class ActionFactory {
         map(ResourceURIs.JOIN, GET, GetCourseJoinStatusAction.class);
         map(ResourceURIs.JOIN, PUT, JoinCourseAction.class);
         map(ResourceURIs.JOIN_REMIND, POST, SendJoinReminderEmailAction.class);
-        map(ResourceURIs.COURSE_ENROLL_STUDENTS, GET, GetCourseEnrollStudentsAction.class);
         map(ResourceURIs.STUDENT_PROFILE, GET, GetStudentProfileAction.class);
         map(ResourceURIs.STUDENT_PROFILE, PUT, UpdateStudentProfileAction.class);
         map(ResourceURIs.STUDENT_PROFILE_PICTURE, GET, GetStudentProfilePictureAction.class);
