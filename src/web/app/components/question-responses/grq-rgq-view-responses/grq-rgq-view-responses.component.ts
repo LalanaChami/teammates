@@ -1,5 +1,7 @@
 import { Component, Input, OnChanges, OnInit } from '@angular/core';
+import { FeedbackResponsesService } from '../../../../services/feedback-responses.service';
 import {
+  FeedbackParticipantType,
   FeedbackSession,
   FeedbackSessionPublishStatus,
   FeedbackSessionSubmissionStatus, QuestionOutput, ResponseOutput,
@@ -9,7 +11,7 @@ import {
 import {
   InstructorSessionResultSectionType,
 } from '../../../pages-instructor/instructor-session-result-page/instructor-session-result-section-type.enum';
-import { ResponsesInstructorCommentsBase } from '../responses-instructor-comments-base';
+import { InstructorResponsesViewBase } from '../instructor-responses-view-base';
 
 /**
  * Component to display list of responses in GRQ/RGQ view.
@@ -19,7 +21,7 @@ import { ResponsesInstructorCommentsBase } from '../responses-instructor-comment
   templateUrl: './grq-rgq-view-responses.component.html',
   styleUrls: ['./grq-rgq-view-responses.component.scss'],
 })
-export class GrqRgqViewResponsesComponent extends ResponsesInstructorCommentsBase implements OnInit, OnChanges {
+export class GrqRgqViewResponsesComponent extends InstructorResponsesViewBase implements OnInit, OnChanges {
 
   @Input() responses: QuestionOutput[] = [];
   @Input() section: string = '';
@@ -49,13 +51,16 @@ export class GrqRgqViewResponsesComponent extends ResponsesInstructorCommentsBas
   teamsToUsers: Record<string, string[]> = {};
   usersToTeams: Record<string, string> = {};
   userToEmail: Record<string, string> = {};
+  userToRelatedEmail: Record<string, string> = {};
 
   teamExpanded: Record<string, boolean> = {};
   userExpanded: Record<string, boolean> = {};
+  userIsInstructor: Record<string, boolean> = {};
 
   responsesToShow: Record<string, Record<string, QuestionOutput[]>> = {};
+  userHasRealResponses: Record<string, boolean> = {};
 
-  constructor() {
+  constructor(private feedbackResponsesService: FeedbackResponsesService) {
     super();
   }
 
@@ -69,13 +74,39 @@ export class GrqRgqViewResponsesComponent extends ResponsesInstructorCommentsBas
 
   private filterResponses(): void {
     this.responsesToShow = {};
+    this.userHasRealResponses = {};
     this.teamsToUsers = {};
     this.usersToTeams = {};
     this.userToEmail = {};
+    this.userToRelatedEmail = {};
     this.teamExpanded = {};
     this.userExpanded = {};
     for (const question of this.responses) {
       for (const response of question.allResponses) {
+        if (!this.indicateMissingResponses && response.isMissingResponse) {
+          // filter out missing responses
+          continue;
+        }
+
+        if (this.section) {
+          if (this.isGrq && response.giverSection !== this.section
+              || !this.isGrq && response.recipientSection !== this.section) {
+            continue;
+          }
+        }
+        const shouldDisplayBasedOnSection: boolean = this.feedbackResponsesService
+            .isFeedbackResponsesDisplayedOnSection(response, this.section, this.sectionType);
+        if (!shouldDisplayBasedOnSection) {
+          continue;
+        }
+
+        if (response.giverEmail) {
+          this.userToEmail[response.giver] = response.giverEmail;
+        }
+        if (response.recipientEmail) {
+          this.userToEmail[response.recipient] = response.recipientEmail;
+        }
+
         if (this.isGrq) {
           this.teamsToUsers[response.giverTeam] = this.teamsToUsers[response.giverTeam] || [];
           this.usersToTeams[response.giver] = this.usersToTeams[response.giver] || '';
@@ -84,10 +115,12 @@ export class GrqRgqViewResponsesComponent extends ResponsesInstructorCommentsBas
             this.usersToTeams[response.giver] = response.giverTeam;
             this.teamExpanded[response.giverTeam] = this.isExpandAll;
           }
-          if (response.giverEmail) {
-            this.userToEmail[response.giver] = response.giverEmail;
+          if (response.relatedGiverEmail) {
+            this.userToRelatedEmail[response.giver] = response.relatedGiverEmail;
           }
           this.userExpanded[response.giver] = this.isExpandAll;
+          this.userIsInstructor[response.giver] =
+              question.feedbackQuestion.giverType === FeedbackParticipantType.INSTRUCTORS;
         } else {
           this.usersToTeams[response.recipient] = this.usersToTeams[response.recipient] || '';
           this.userExpanded[response.recipient] = this.isExpandAll;
@@ -106,17 +139,20 @@ export class GrqRgqViewResponsesComponent extends ResponsesInstructorCommentsBas
               this.teamExpanded[response.recipientTeam] = this.isExpandAll;
             }
           }
-          if (response.recipientEmail) {
-            this.userToEmail[response.recipient] = response.recipientEmail;
-          }
         }
       }
     }
 
     for (const user of Object.keys(this.userExpanded)) {
+      this.userHasRealResponses[user] = false;
+
       for (const question of this.responses) {
         const questionCopy: QuestionOutput = JSON.parse(JSON.stringify(question));
         questionCopy.allResponses = questionCopy.allResponses.filter((response: ResponseOutput) => {
+          if (!this.indicateMissingResponses && response.isMissingResponse) {
+            // filter out missing responses
+            return false;
+          }
           if (this.isGrq && user !== response.giver) {
             return false;
           }
@@ -124,32 +160,16 @@ export class GrqRgqViewResponsesComponent extends ResponsesInstructorCommentsBas
             return false;
           }
 
-          let shouldDisplayBasedOnSection: boolean = true;
-          if (this.section) {
-            switch (this.sectionType) {
-              case InstructorSessionResultSectionType.EITHER:
-                shouldDisplayBasedOnSection =
-                    response.giverSection === this.section || response.recipientSection === this.section;
-                break;
-              case InstructorSessionResultSectionType.GIVER:
-                shouldDisplayBasedOnSection = response.giverSection === this.section;
-                break;
-              case InstructorSessionResultSectionType.EVALUEE:
-                shouldDisplayBasedOnSection = response.recipientSection === this.section;
-                break;
-              case InstructorSessionResultSectionType.BOTH:
-                shouldDisplayBasedOnSection =
-                    response.giverSection === this.section && response.recipientSection === this.section;
-                break;
-              default:
-            }
-          }
+          const shouldDisplayBasedOnSection: boolean = this.feedbackResponsesService
+            .isFeedbackResponsesDisplayedOnSection(response, this.section, this.sectionType);
+
           if (!shouldDisplayBasedOnSection) {
             return false;
           }
 
           return true;
         });
+
         if (questionCopy.allResponses.length) {
           const others: string[] = questionCopy.allResponses.map((response: ResponseOutput) => {
             return this.isGrq ? response.recipient : response.giver;
@@ -162,6 +182,11 @@ export class GrqRgqViewResponsesComponent extends ResponsesInstructorCommentsBas
             this.responsesToShow[user] = this.responsesToShow[user] || {};
             this.responsesToShow[user][other] = this.responsesToShow[user][other] || [];
             this.responsesToShow[user][other].push(questionCopy2);
+
+            if (!this.userHasRealResponses[user]) {
+              this.userHasRealResponses[user] =
+                  questionCopy2.allResponses.some((response: ResponseOutput) => !response.isMissingResponse);
+            }
           }
         }
       }
